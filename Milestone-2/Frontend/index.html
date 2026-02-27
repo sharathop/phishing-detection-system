@@ -1,0 +1,1946 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PhishGuard — Phishing Detection System</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.1/lucide.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-950: #020617;
+    --bg-900: #0f172a;
+    --bg-800: #1e293b;
+    --bg-700: #334155;
+    --indigo: #6366f1;
+    --indigo-dim: rgba(99,102,241,0.15);
+    --indigo-glow: rgba(99,102,241,0.4);
+    --emerald: #10b981;
+    --emerald-dim: rgba(16,185,129,0.12);
+    --emerald-glow: rgba(16,185,129,0.4);
+    --rose: #f43f5e;
+    --rose-dim: rgba(244,63,94,0.12);
+    --rose-glow: rgba(244,63,94,0.4);
+    --slate-400: #94a3b8;
+    --slate-300: #cbd5e1;
+    --text: #e2e8f0;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { height:100%; }
+  body {
+    background: var(--bg-950);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    overflow-x: hidden;
+    min-height: 100vh;
+  }
+
+  /* ─── BG GRID ─── */
+  body::before {
+    content:'';
+    position:fixed;
+    inset:0;
+    background-image:
+      linear-gradient(rgba(99,102,241,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(99,102,241,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events:none;
+    z-index:0;
+  }
+
+  /* ─── VIEWS ─── */
+  .view { display:none; position:relative; z-index:1; }
+  .view.active { display:flex; }
+
+  /* ─── AUTH ─── */
+  #auth-view {
+    min-height:100vh;
+    align-items:stretch;
+    justify-content:center;
+    flex-direction:row;
+  }
+
+  /* LEFT HERO PANEL */
+  .auth-hero {
+    flex:1; min-height:100vh;
+    background: linear-gradient(145deg, #0a0f2e 0%, #0f172a 40%, #0d1f3c 100%);
+    border-right:1px solid rgba(99,102,241,0.15);
+    display:flex; flex-direction:column;
+    justify-content:center; padding:4rem 3.5rem;
+    position:relative; overflow:hidden;
+  }
+  /* decorative orbs */
+  .auth-hero::before {
+    content:''; position:absolute;
+    width:420px; height:420px; border-radius:50%;
+    background: radial-gradient(circle, rgba(99,102,241,0.18) 0%, transparent 70%);
+    top:-80px; left:-120px; pointer-events:none;
+  }
+  .auth-hero::after {
+    content:''; position:absolute;
+    width:300px; height:300px; border-radius:50%;
+    background: radial-gradient(circle, rgba(16,185,129,0.10) 0%, transparent 70%);
+    bottom:-60px; right:-60px; pointer-events:none;
+  }
+  .hero-logo {
+    display:flex; align-items:center; gap:.75rem;
+    font-family:'Space Mono',monospace; font-size:1.3rem; font-weight:700;
+    color:#fff; margin-bottom:3.5rem; position:relative; z-index:1;
+  }
+  .hero-logo-icon {
+    width:42px; height:42px; border-radius:12px;
+    background:linear-gradient(135deg,var(--indigo),#818cf8);
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:0 0 24px var(--indigo-glow);
+  }
+  .hero-title {
+    font-size:2.6rem; font-weight:800; color:#fff; line-height:1.15;
+    margin-bottom:1rem; position:relative; z-index:1;
+  }
+  .hero-title span { color:#818cf8; }
+  .hero-desc {
+    font-size:.95rem; color:var(--slate-400); line-height:1.7;
+    max-width:400px; margin-bottom:2.5rem; position:relative; z-index:1;
+  }
+  .hero-features { display:flex; flex-direction:column; gap:.85rem; position:relative; z-index:1; }
+  .hero-feature {
+    display:flex; align-items:center; gap:.85rem;
+    background:rgba(99,102,241,0.07); border:1px solid rgba(99,102,241,0.14);
+    border-radius:12px; padding:.75rem 1rem;
+  }
+  .hero-feature-icon {
+    width:34px; height:34px; border-radius:8px; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .hfi-indigo { background:rgba(99,102,241,0.2); }
+  .hfi-emerald{ background:rgba(16,185,129,0.2); }
+  .hfi-rose   { background:rgba(244,63,94,0.2); }
+  .hero-feature-text strong { display:block; font-size:.83rem; font-weight:700; color:var(--slate-300); }
+  .hero-feature-text span   { font-size:.75rem; color:var(--slate-400); }
+
+  /* RIGHT FORM PANEL */
+  .auth-form-panel {
+    width:460px; min-height:100vh; flex-shrink:0;
+    background:rgba(10,15,40,0.97);
+    display:flex; flex-direction:column;
+    align-items:center; justify-content:center;
+    padding:2.5rem 2.5rem;
+  }
+
+  .auth-logo {
+    display:flex; align-items:center; gap:.75rem;
+    font-family:'Space Mono',monospace;
+    font-size:1.5rem; font-weight:700;
+    color:#fff; letter-spacing:-0.03em;
+  }
+  .auth-logo-icon {
+    width:40px; height:40px; border-radius:10px;
+    background: linear-gradient(135deg, var(--indigo), #818cf8);
+    display:flex; align-items:center; justify-content:center;
+    box-shadow: 0 0 20px var(--indigo-glow);
+  }
+  .auth-card {
+    width:100%; max-width:380px;
+    animation: slideUp .5s ease both;
+  }
+  @keyframes slideUp {
+    from { opacity:0; transform:translateY(24px); }
+    to   { opacity:1; transform:translateY(0); }
+  }
+  .auth-title { font-size:1.7rem; font-weight:800; color:#fff; margin-bottom:.3rem; }
+  .auth-sub { color:var(--slate-400); font-size:.875rem; margin-bottom:1.75rem; }
+
+  .field { margin-bottom:1.1rem; }
+  .field label { display:block; font-size:.78rem; font-weight:600; color:var(--slate-400); margin-bottom:.4rem; letter-spacing:.06em; text-transform:uppercase; }
+  .field input {
+    width:100%; padding:.7rem 1rem;
+    background: rgba(30,41,59,0.8);
+    border: 1px solid rgba(99,102,241,0.2);
+    border-radius:10px;
+    color: var(--text);
+    font-family:'Syne',sans-serif; font-size:.9rem;
+    outline:none; transition: border-color .2s, box-shadow .2s;
+  }
+  .field input:focus {
+    border-color: var(--indigo);
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+  }
+  .field input::placeholder { color: #475569; }
+
+  .remember-row { display:flex; align-items:center; justify-content:space-between; margin-bottom:1.5rem; font-size:.82rem; }
+  .remember-row label { display:flex; align-items:center; gap:.5rem; color:var(--slate-400); cursor:pointer; }
+  .remember-row input[type=checkbox] { accent-color:var(--indigo); }
+  .remember-row a { color:var(--indigo); text-decoration:none; }
+  .remember-row a:hover { text-decoration:underline; }
+
+  .btn-primary {
+    width:100%; padding:.8rem;
+    background: linear-gradient(135deg, var(--indigo), #818cf8);
+    border:none; border-radius:10px;
+    color:#fff; font-family:'Syne',sans-serif;
+    font-size:.95rem; font-weight:700;
+    cursor:pointer; transition: transform .15s, box-shadow .15s;
+    box-shadow: 0 4px 20px rgba(99,102,241,0.35);
+    letter-spacing:.01em;
+  }
+  .btn-primary:hover { transform:translateY(-1px); box-shadow: 0 6px 28px rgba(99,102,241,0.5); }
+  .btn-primary:active { transform:translateY(0); }
+
+  .auth-switch { text-align:center; margin-top:1.2rem; font-size:.85rem; color:var(--slate-400); }
+  .auth-switch a { color:var(--indigo); text-decoration:none; font-weight:600; }
+  .auth-switch a:hover { text-decoration:underline; }
+
+  /* ─── MAIN LAYOUT ─── */
+  #main-view { min-height:100vh; flex-direction:row; }
+
+  /* ─── SIDEBAR ─── */
+  .sidebar {
+    width:240px; min-height:100vh;
+    background: rgba(15,23,42,0.95);
+    border-right:1px solid rgba(99,102,241,0.12);
+    display:flex; flex-direction:column;
+    padding:1.5rem 1rem;
+    position:fixed; left:0; top:0; bottom:0; z-index:100;
+    backdrop-filter:blur(20px);
+    transition: transform .3s ease;
+  }
+  .sidebar-logo {
+    display:flex; align-items:center; gap:.6rem;
+    font-family:'Space Mono',monospace; font-weight:700;
+    font-size:1.05rem; color:#fff;
+    padding:.5rem .75rem 1.5rem;
+    border-bottom:1px solid rgba(99,102,241,0.12);
+    margin-bottom:1rem;
+  }
+  .sidebar-logo-dot {
+    width:30px; height:30px; border-radius:8px;
+    background: linear-gradient(135deg,var(--indigo),#818cf8);
+    display:flex; align-items:center; justify-content:center;
+    box-shadow: 0 0 12px var(--indigo-glow);
+    flex-shrink:0;
+  }
+  .nav-item {
+    display:flex; align-items:center; gap:.75rem;
+    padding:.7rem .85rem; border-radius:10px;
+    color:var(--slate-400); font-size:.88rem; font-weight:600;
+    cursor:pointer; transition: all .18s; margin-bottom:.2rem;
+    border:1px solid transparent;
+    user-select:none;
+  }
+  .nav-item:hover { background:var(--indigo-dim); color:#c7d2fe; }
+  .nav-item.active {
+    background:var(--indigo-dim);
+    color:#c7d2fe;
+    border-color:rgba(99,102,241,0.3);
+    box-shadow: 0 0 12px rgba(99,102,241,0.1);
+  }
+  .nav-item i { width:18px; height:18px; flex-shrink:0; }
+
+  .sidebar-spacer { flex:1; }
+  .btn-logout {
+    display:flex; align-items:center; gap:.75rem;
+    padding:.7rem .85rem; border-radius:10px;
+    background: rgba(244,63,94,0.1);
+    border:1px solid rgba(244,63,94,0.25);
+    color:#fb7185; font-size:.88rem; font-weight:700;
+    cursor:pointer; transition:all .2s;
+    font-family:'Syne',sans-serif;
+    letter-spacing:.01em;
+  }
+  .btn-logout:hover { background:rgba(244,63,94,0.2); box-shadow:0 0 16px rgba(244,63,94,0.2); }
+  .btn-logout i { width:18px; height:18px; }
+
+  /* ─── MAIN CONTENT ─── */
+  .main-content {
+    margin-left:240px;
+    flex:1; padding:2rem 2rem 2rem;
+    min-height:100vh;
+    max-width:calc(100vw - 240px);
+  }
+  .page { display:none; }
+  .page.active { display:block; }
+
+  /* topbar */
+  .topbar {
+    display:flex; align-items:center; justify-content:space-between;
+    margin-bottom:2rem;
+  }
+  .topbar-title { font-size:1.5rem; font-weight:800; color:#fff; }
+  .topbar-sub { color:var(--slate-400); font-size:.82rem; margin-top:.15rem; }
+  .topbar-right { display:flex; align-items:center; gap:.75rem; }
+  .avatar {
+    width:38px; height:38px; border-radius:50%;
+    background:linear-gradient(135deg,var(--indigo),#818cf8);
+    display:flex; align-items:center; justify-content:center;
+    font-weight:800; font-size:.85rem; color:#fff;
+    box-shadow:0 0 12px var(--indigo-glow);
+  }
+  .topbar-name { font-size:.88rem; font-weight:600; color:var(--slate-300); }
+
+  /* ─── STATS CARDS ─── */
+  .stats-grid {
+    display:grid; grid-template-columns:repeat(4,1fr); gap:1rem;
+    margin-bottom:1.5rem;
+  }
+  .stat-card {
+    background:rgba(15,23,42,0.9);
+    border:1px solid rgba(99,102,241,0.12);
+    border-radius:16px; padding:1.25rem 1.25rem 1rem;
+    backdrop-filter:blur(10px);
+    position:relative; overflow:hidden;
+    transition:transform .2s, box-shadow .2s;
+  }
+  .stat-card:hover { transform:translateY(-2px); }
+  .stat-card::before {
+    content:''; position:absolute; top:0; left:0; right:0; height:2px;
+    border-radius:16px 16px 0 0;
+  }
+  .stat-card.indigo::before { background:linear-gradient(90deg,var(--indigo),transparent); }
+  .stat-card.rose::before   { background:linear-gradient(90deg,var(--rose),transparent); }
+  .stat-card.emerald::before{ background:linear-gradient(90deg,var(--emerald),transparent); }
+  .stat-card.amber::before  { background:linear-gradient(90deg,#f59e0b,transparent); }
+
+  .stat-label { font-size:.72rem; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--slate-400); margin-bottom:.6rem; }
+  .stat-value { font-family:'Space Mono',monospace; font-size:2rem; font-weight:700; line-height:1; }
+  .stat-card.indigo .stat-value { color:#818cf8; }
+  .stat-card.rose .stat-value   { color:var(--rose); text-shadow:0 0 20px var(--rose-glow); }
+  .stat-card.emerald .stat-value{ color:var(--emerald); text-shadow:0 0 20px var(--emerald-glow); }
+  .stat-card.amber .stat-value  { color:#fbbf24; text-shadow:0 0 20px rgba(251,191,36,.4); }
+  .stat-sub { font-size:.78rem; color:var(--slate-400); margin-top:.4rem; }
+  .stat-icon { position:absolute; top:1rem; right:1.1rem; opacity:.15; }
+  .stat-icon i { width:32px; height:32px; }
+
+  /* gauge */
+  .gauge-wrap { position:relative; display:inline-block; }
+  .gauge-svg { transform:rotate(-90deg); }
+  .gauge-text {
+    position:absolute; inset:0;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    font-family:'Space Mono',monospace;
+  }
+  .gauge-pct { font-size:1.3rem; font-weight:700; color:#fbbf24; }
+  .gauge-lbl { font-size:.6rem; color:var(--slate-400); letter-spacing:.05em; }
+
+  /* ─── CHARTS ─── */
+  .charts-grid { display:grid; grid-template-columns:1fr 1.8fr; gap:1rem; margin-bottom:1.5rem; }
+  .chart-card {
+    background:rgba(15,23,42,0.9);
+    border:1px solid rgba(99,102,241,0.12);
+    border-radius:16px; padding:1.5rem;
+    backdrop-filter:blur(10px);
+  }
+  .chart-card-title { font-size:.88rem; font-weight:700; color:var(--slate-300); margin-bottom:1.25rem; display:flex; align-items:center; gap:.5rem; }
+  .chart-card-title span { width:8px; height:8px; border-radius:2px; display:inline-block; }
+  .dot-indigo { background:var(--indigo); }
+  .dot-rose   { background:var(--rose); }
+  .dot-emerald{ background:var(--emerald); }
+
+  /* ─── SCAN PAGE ─── */
+  .scan-wrapper { max-width:680px; margin:3rem auto 0; }
+  .scan-hero { text-align:center; margin-bottom:2.5rem; }
+  .scan-hero h2 { font-size:2rem; font-weight:800; color:#fff; margin-bottom:.5rem; }
+  .scan-hero p  { color:var(--slate-400); font-size:.9rem; }
+
+  .scan-box {
+    display:flex; gap:.75rem;
+    background:rgba(15,23,42,0.9);
+    border:1px solid rgba(99,102,241,0.25);
+    border-radius:16px; padding:.75rem .75rem .75rem 1.25rem;
+    box-shadow:0 0 40px rgba(99,102,241,0.1);
+    margin-bottom:1.5rem;
+  }
+  .scan-box input {
+    flex:1; background:transparent; border:none; outline:none;
+    color:var(--text); font-family:'Space Mono',monospace; font-size:.9rem;
+  }
+  .scan-box input::placeholder { color:#475569; }
+  .scan-btn {
+    padding:.7rem 1.4rem;
+    background:linear-gradient(135deg,var(--indigo),#818cf8);
+    border:none; border-radius:10px;
+    color:#fff; font-family:'Syne',sans-serif; font-weight:700; font-size:.9rem;
+    cursor:pointer; transition:all .2s; white-space:nowrap;
+    box-shadow:0 4px 16px rgba(99,102,241,0.3);
+  }
+  .scan-btn:hover { transform:translateY(-1px); box-shadow:0 6px 24px rgba(99,102,241,0.45); }
+  .scan-btn.scanning { opacity:.7; cursor:not-allowed; }
+
+  .scanning-anim {
+    display:none; text-align:center; padding:2rem; color:var(--slate-400);
+  }
+  .scanning-anim.visible { display:block; }
+  .pulse-ring {
+    width:60px; height:60px; margin:0 auto 1rem;
+    border-radius:50%;
+    border:3px solid var(--indigo);
+    animation:pulse-out 1.2s ease-out infinite;
+    display:flex; align-items:center; justify-content:center;
+  }
+  @keyframes pulse-out {
+    0%   { transform:scale(.9); box-shadow:0 0 0 0 rgba(99,102,241,0.5); }
+    70%  { transform:scale(1);  box-shadow:0 0 0 18px rgba(99,102,241,0); }
+    100% { transform:scale(.9); box-shadow:0 0 0 0 rgba(99,102,241,0); }
+  }
+  .pulse-inner { width:12px; height:12px; border-radius:50%; background:var(--indigo); }
+
+  .result-card {
+    display:none;
+    background:rgba(15,23,42,0.9);
+    border-radius:16px; padding:1.5rem;
+    backdrop-filter:blur(10px);
+    animation:slideUp .4s ease both;
+  }
+  .result-card.visible { display:block; }
+  .result-card.safe   { border:1px solid rgba(16,185,129,0.3); box-shadow:0 0 30px rgba(16,185,129,0.08); }
+  .result-card.phish  { border:1px solid rgba(244,63,94,0.3);  box-shadow:0 0 30px rgba(244,63,94,0.08); }
+
+  .result-header { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:.75rem; margin-bottom:1.25rem; }
+  .result-url { font-family:'Space Mono',monospace; font-size:.82rem; color:var(--slate-300); word-break:break-all; flex:1; }
+  .badge {
+    padding:.35rem .85rem; border-radius:999px;
+    font-size:.72rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+    flex-shrink:0;
+  }
+  .badge-safe  { background:var(--emerald-dim); color:var(--emerald); border:1px solid rgba(16,185,129,.3); }
+  .badge-phish { background:var(--rose-dim);    color:var(--rose);    border:1px solid rgba(244,63,94,.3); }
+
+  .confidence-row { display:flex; align-items:center; gap:1rem; }
+  .confidence-bar-wrap { flex:1; height:8px; background:rgba(30,41,59,1); border-radius:4px; overflow:hidden; }
+  .confidence-bar { height:100%; border-radius:4px; transition:width 1s ease; }
+  .confidence-bar.safe  { background:linear-gradient(90deg,var(--emerald),#34d399); }
+  .confidence-bar.phish { background:linear-gradient(90deg,var(--rose),#fb7185); }
+  .confidence-pct { font-family:'Space Mono',monospace; font-size:.9rem; font-weight:700; min-width:48px; text-align:right; }
+  .confidence-pct.safe  { color:var(--emerald); }
+  .confidence-pct.phish { color:var(--rose); }
+  .confidence-label { font-size:.75rem; color:var(--slate-400); margin-bottom:.5rem; }
+
+  .result-meta { display:grid; grid-template-columns:repeat(3,1fr); gap:1rem; margin-top:1.25rem; padding-top:1.25rem; border-top:1px solid rgba(99,102,241,0.1); }
+  .meta-item label { display:block; font-size:.68rem; text-transform:uppercase; letter-spacing:.06em; color:var(--slate-400); margin-bottom:.25rem; }
+
+  /* ─── FEATURE BREAKDOWN ─── */
+  .feature-breakdown {
+    margin-top:1.25rem; padding-top:1.25rem;
+    border-top:1px solid rgba(99,102,241,0.1);
+  }
+  .feature-breakdown-title {
+    font-size:.72rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--slate-400); margin-bottom:1rem;
+    display:flex; align-items:center; gap:.5rem;
+  }
+  .feature-breakdown-title::after {
+    content:''; flex:1; height:1px; background:rgba(99,102,241,0.12);
+  }
+  .feature-grid {
+    display:grid; grid-template-columns:1fr 1fr; gap:.65rem;
+  }
+  .feature-row {
+    background:rgba(10,16,36,0.7); border:1px solid rgba(99,102,241,0.1);
+    border-radius:10px; padding:.7rem .9rem;
+    transition: border-color .2s, background .2s;
+  }
+  .feature-row:hover { border-color:rgba(99,102,241,0.25); background:rgba(99,102,241,0.05); }
+  .feature-row-top {
+    display:flex; align-items:center; justify-content:space-between;
+    margin-bottom:.5rem;
+  }
+  .feature-name-wrap { display:flex; align-items:center; gap:.5rem; }
+  .feature-icon {
+    width:22px; height:22px; border-radius:6px;
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .feature-name {
+    font-size:.76rem; font-weight:700; color:var(--slate-300);
+  }
+  .feature-value-wrap { display:flex; align-items:center; gap:.4rem; }
+  .feature-val {
+    font-family:'Space Mono',monospace; font-size:.72rem; font-weight:700;
+  }
+  .feature-strength-tag {
+    font-size:.6rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase;
+    padding:.15rem .45rem; border-radius:4px;
+  }
+  .str-high   { background:rgba(244,63,94,0.15);  color:#fb7185; border:1px solid rgba(244,63,94,0.25); }
+  .str-medium { background:rgba(245,158,11,0.15); color:#fbbf24; border:1px solid rgba(245,158,11,0.25); }
+  .str-low    { background:rgba(16,185,129,0.12); color:#34d399; border:1px solid rgba(16,185,129,0.25); }
+  .str-safe   { background:rgba(16,185,129,0.12); color:#34d399; border:1px solid rgba(16,185,129,0.25); }
+
+  .feature-bar-track {
+    height:5px; border-radius:3px;
+    background:rgba(30,41,59,0.9); overflow:hidden;
+  }
+  .feature-bar-fill {
+    height:100%; border-radius:3px;
+    width:0%; transition:width 1.1s cubic-bezier(.16,1,.3,1);
+  }
+  .feature-desc {
+    font-size:.68rem; color:var(--slate-400); margin-top:.35rem; line-height:1.4;
+  }
+
+  @media(max-width:560px) {
+    .feature-grid { grid-template-columns:1fr; }
+  }
+  .meta-item span { font-size:.85rem; font-weight:700; color:var(--slate-300); }
+
+  /* ─── HISTORY ─── */
+  .history-header { display:flex; align-items:center; gap:1rem; margin-bottom:1.5rem; flex-wrap:wrap; }
+  .search-wrap { position:relative; flex:1; min-width:200px; }
+  .search-wrap input {
+    width:100%; padding:.6rem .9rem .6rem 2.4rem;
+    background:rgba(15,23,42,0.9);
+    border:1px solid rgba(99,102,241,0.2);
+    border-radius:10px; color:var(--text);
+    font-family:'Syne',sans-serif; font-size:.85rem;
+    outline:none; transition:border-color .2s;
+  }
+  .search-wrap input:focus { border-color:var(--indigo); }
+  .search-wrap input::placeholder { color:#475569; }
+  .search-icon { position:absolute; left:.7rem; top:50%; transform:translateY(-50%); color:var(--slate-400); pointer-events:none; }
+  .history-count { font-size:.8rem; color:var(--slate-400); }
+
+  .table-wrap {
+    background:rgba(15,23,42,0.9);
+    border:1px solid rgba(99,102,241,0.12);
+    border-radius:16px; overflow:hidden;
+    backdrop-filter:blur(10px);
+  }
+  table { width:100%; border-collapse:collapse; }
+  thead th {
+    padding:.9rem 1.25rem; text-align:left;
+    font-size:.7rem; font-weight:700; text-transform:uppercase;
+    letter-spacing:.08em; color:var(--slate-400);
+    border-bottom:1px solid rgba(99,102,241,0.12);
+    background:rgba(30,41,59,0.4);
+  }
+  tbody tr { transition:background .15s; }
+  tbody tr:hover { background:rgba(99,102,241,0.04); }
+  tbody tr:not(:last-child) td { border-bottom:1px solid rgba(99,102,241,0.07); }
+  tbody td { padding:.85rem 1.25rem; font-size:.83rem; }
+  .td-url { font-family:'Space Mono',monospace; font-size:.75rem; color:var(--slate-300); max-width:280px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .td-date { color:var(--slate-400); white-space:nowrap; }
+  .risk-score { font-family:'Space Mono',monospace; font-weight:700; }
+  .risk-high { color:var(--rose); }
+  .risk-low  { color:var(--emerald); }
+  .risk-mid  { color:#fbbf24; }
+
+  .empty-state { text-align:center; padding:3rem; color:var(--slate-400); font-size:.88rem; }
+
+  /* ─── MOBILE HAMBURGER ─── */
+  .hamburger {
+    display:none; position:fixed; top:1rem; left:1rem; z-index:200;
+    width:42px; height:42px; border-radius:10px;
+    background:rgba(15,23,42,0.9); border:1px solid rgba(99,102,241,0.25);
+    color:var(--slate-300); align-items:center; justify-content:center;
+    cursor:pointer;
+  }
+  .sidebar-overlay {
+    display:none; position:fixed; inset:0; z-index:99;
+    background:rgba(2,6,23,0.7); backdrop-filter:blur(4px);
+  }
+
+  /* ─── DASHBOARD HISTORY TABLE ─── */
+  .dash-history-header {
+    display:flex; align-items:center; justify-content:space-between;
+    margin-bottom:1rem; flex-wrap:wrap; gap:.75rem;
+  }
+  .dash-history-title {
+    font-size:.88rem; font-weight:700; color:var(--slate-300);
+    display:flex; align-items:center; gap:.5rem;
+  }
+  .dash-search-wrap { position:relative; }
+  .dash-search-wrap input {
+    padding:.5rem .85rem .5rem 2.1rem;
+    background:rgba(30,41,59,0.7);
+    border:1px solid rgba(99,102,241,0.18);
+    border-radius:8px; color:var(--text);
+    font-family:'Syne',sans-serif; font-size:.8rem;
+    outline:none; transition:border-color .2s; width:220px;
+  }
+  .dash-search-wrap input:focus { border-color:var(--indigo); }
+  .dash-search-wrap input::placeholder { color:#475569; }
+  .dash-search-icon { position:absolute; left:.6rem; top:50%; transform:translateY(-50%); color:var(--slate-400); pointer-events:none; }
+  .view-all-btn {
+    font-size:.75rem; color:var(--indigo); font-weight:600;
+    background:none; border:none; cursor:pointer; padding:.3rem .6rem;
+    border-radius:6px; transition:background .15s; font-family:'Syne',sans-serif;
+  }
+  .view-all-btn:hover { background:var(--indigo-dim); }
+
+  /* ─── MOBILE ─── */
+  .auth-hero-mobile-logo { display:none; }
+
+  @media(max-width:900px) {
+    .stats-grid { grid-template-columns:repeat(2,1fr); }
+    .charts-grid { grid-template-columns:1fr; }
+    .auth-hero { padding:3rem 2rem; }
+    .hero-title { font-size:2rem; }
+    .auth-form-panel { width:420px; }
+  }
+  @media(max-width:720px) {
+    #auth-view { flex-direction:column; }
+    .auth-hero { display:none; }
+    .auth-form-panel { width:100%; padding:2rem 1.5rem; min-height:100vh; }
+    .auth-hero-mobile-logo { display:flex; align-items:center; gap:.6rem; font-family:'Space Mono',monospace; font-weight:700; font-size:1.1rem; color:#fff; margin-bottom:2rem; }
+    .auth-hero-mobile-icon { width:36px; height:36px; border-radius:10px; background:linear-gradient(135deg,var(--indigo),#818cf8); display:flex; align-items:center; justify-content:center; box-shadow:0 0 16px var(--indigo-glow); }
+
+    .sidebar { transform:translateX(-100%); }
+    .sidebar.open { transform:translateX(0); box-shadow:8px 0 40px rgba(0,0,0,0.6); }
+    .sidebar-overlay.open { display:block; }
+    .main-content { margin-left:0; max-width:100vw; padding:1.25rem 1rem 1rem; padding-top:4.5rem; }
+    .hamburger { display:flex; }
+    .stats-grid { grid-template-columns:repeat(2,1fr); }
+    .result-meta { grid-template-columns:repeat(2,1fr); }
+    .dash-search-wrap input { width:160px; }
+  }
+  @media(max-width:440px) {
+    .stats-grid { grid-template-columns:1fr; }
+    .scan-box { flex-direction:column; }
+    .scan-btn { width:100%; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════
+     AUTH VIEW
+═══════════════════════════════════════════ -->
+<div id="auth-view" class="view active">
+
+  <!-- LEFT: HERO PANEL -->
+  <div class="auth-hero">
+    <div class="hero-logo">
+      <div class="hero-logo-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      </div>
+      PhishGuard
+    </div>
+
+    <div class="hero-title">
+      AI-Powered<br><span>Phishing Detection</span><br>& Classification
+    </div>
+  
+
+    <div class="hero-features">
+      <div class="hero-feature">
+        <div class="hero-feature-icon hfi-indigo">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#818cf8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </div>
+        <div class="hero-feature-text">
+          <strong>Real-time URL Analysis</strong>
+          
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: FORM PANEL -->
+  <div class="auth-form-panel">
+    <!-- Login -->
+    <div id="login-panel" style="width:100%;max-width:380px;">
+      <!-- Mobile-only logo -->
+      <div class="auth-hero-mobile-logo">
+        <div class="auth-hero-mobile-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        PhishGuard
+      </div>
+      <div class="auth-title">Welcome back</div>
+      <div class="auth-sub">Sign in to your security dashboard</div>
+      <div class="field"><label>Email Address</label><input type="email" placeholder="you@domain.com" id="login-email"></div>
+      <div class="field"><label>Password</label><input type="password" placeholder="••••••••" id="login-pass"></div>
+      <div class="remember-row">
+        <label><input type="checkbox" checked> Remember me</label>
+        <a href="#">Forgot password?</a>
+      </div>
+      <button type="button" class="btn-primary" onclick="doLogin()">Sign In</button>
+      <div class="auth-switch" style="margin-top:1.25rem;">No account? <a href="#" onclick="showPanel('register')">Create one</a></div>
+    </div>
+
+    <!-- Register -->
+    <div id="register-panel" style="display:none;width:100%;max-width:380px;">
+      <div class="auth-hero-mobile-logo">
+        <div class="auth-hero-mobile-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        PhishGuard
+      </div>
+      <div class="auth-title">Create account</div>
+      <div class="auth-sub">Start protecting your organization today</div>
+      <div class="field"><label>Full Name</label><input type="text" id="reg-name" placeholder="Alex Johnson"></div>
+      <div class="field"><label>Email Address</label><input type="email" id="reg-email" placeholder="you@domain.com"></div>
+      <div class="field"><label>Password</label><input type="password" id="reg-pass" placeholder="Min 6 characters"></div>
+      <div class="field"><label>Confirm Password</label><input type="password" id="reg-conf" placeholder="Repeat password"></div>
+      <button type="button" class="btn-primary" onclick="doRegister()" style="margin-top:.25rem">Create Account</button>
+      <div class="auth-switch" style="margin-top:1.25rem;">Already have an account? <a href="#" onclick="showPanel('login')">Sign in</a></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════
+     MAIN VIEW
+═══════════════════════════════════════════ -->
+<div id="main-view" class="view">
+  <!-- Hamburger -->
+  <button type="button" class="hamburger" id="hamburger" onclick="toggleSidebar()">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+  </button>
+  <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+  <!-- SIDEBAR -->
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-dot">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      </div>
+      PhishGuard
+    </div>
+
+    <div class="nav-item active" onclick="nav('dashboard',this)">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+      Dashboard
+    </div>
+    <div class="nav-item" onclick="nav('scan',this)">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      Scan URL
+    </div>
+    <div class="nav-item" onclick="nav('history',this)">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      History
+    </div>
+
+    <div class="sidebar-spacer"></div>
+    <button type="button" class="btn-logout" onclick="logout()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      Logout
+    </button>
+  </nav>
+
+  <!-- MAIN CONTENT -->
+  <main class="main-content">
+
+    <!-- ── DASHBOARD PAGE ── -->
+    <div id="page-dashboard" class="page active">
+      <div class="topbar">
+        <div>
+          <div class="topbar-title">Security Dashboard</div>
+          <div class="topbar-sub">Thursday, February 26, 2026 — Real-time threat monitoring</div>
+        </div>
+        <div class="topbar-right">
+          <div class="topbar-name">Alex Johnson</div>
+          <div class="avatar">AJ</div>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-grid">
+        <div class="stat-card indigo">
+          <div class="stat-label">Total Scanned</div>
+          <div class="stat-value" id="total-scanned">0</div>
+          <div class="stat-sub">↑ 12% this week</div>
+          <div class="stat-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
+        </div>
+        <div class="stat-card rose">
+          <div class="stat-label">Phishing Detected</div>
+          <div class="stat-value" id="phishing-detected">0</div>
+          <div class="stat-sub">↑ 8% vs last week</div>
+          <div class="stat-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
+        </div>
+        <div class="stat-card emerald">
+          <div class="stat-label">Safe URLs</div>
+          <div class="stat-value" id="safe-urls">0</div>
+          <div class="stat-sub">↑ 13% vs last week</div>
+          <div class="stat-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+        </div>
+        <div class="stat-card amber">
+          <div class="stat-label">Threat Level</div>
+          <div style="display:flex;align-items:center;gap:1rem;margin-top:.3rem;">
+            <div class="gauge-wrap">
+              <svg class="gauge-svg" width="70" height="70" viewBox="0 0 70 70">
+                <circle cx="35" cy="35" r="28" fill="none" stroke="rgba(30,41,59,1)" stroke-width="7"/>
+                <circle cx="35" cy="35" r="28" fill="none" stroke="#f59e0b" stroke-width="7"
+                  stroke-dasharray="175.9" stroke-dashoffset="88" stroke-linecap="round"
+                  style="filter:drop-shadow(0 0 4px rgba(245,158,11,0.6))"/>
+              </svg>
+              <div class="gauge-text">
+                <div class="gauge-pct">0%</div>
+              </div>
+            </div>
+            <div>
+              <div style="font-size:.75rem;color:#fbbf24;font-weight:700;">MODERATE</div>
+              <div style="font-size:.72rem;color:var(--slate-400);margin-top:.2rem;">Action advised</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Charts -->
+      <div class="charts-grid">
+        <div class="chart-card">
+          <div class="chart-card-title">
+            <span class="dot-indigo" style="border-radius:50%;width:10px;height:10px;"></span>
+            Classification Split
+          </div>
+          <div style="display:flex;justify-content:center;max-height:220px;">
+            <canvas id="doughnutChart"></canvas>
+          </div>
+          <div style="display:flex;justify-content:center;gap:1.5rem;margin-top:1rem;">
+            <div style="display:flex;align-items:center;gap:.4rem;font-size:.78rem;color:var(--slate-400);">
+              <span style="width:10px;height:10px;border-radius:2px;background:var(--rose);display:inline-block;"></span> Phishing 8.0%
+            </div>
+            <div style="display:flex;align-items:center;gap:.4rem;font-size:.78rem;color:var(--slate-400);">
+              <span style="width:10px;height:10px;border-radius:2px;background:var(--emerald);display:inline-block;"></span> Legitimate 92.0%
+            </div>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-card-title">
+            <span class="dot-indigo" style="border-radius:50%;width:10px;height:10px;"></span>
+            Daily Scan Activity — Last 7 Days
+          </div>
+          <canvas id="lineChart" height="90"></canvas>
+        </div>
+      </div>
+
+      <!-- Dashboard Scan History -->
+      <div class="chart-card" style="margin-top:1rem;">
+        <div class="dash-history-header">
+          <div class="dash-history-title">
+            <span style="width:10px;height:10px;border-radius:50%;background:var(--indigo);display:inline-block;box-shadow:0 0 6px var(--indigo-glow);"></span>
+            Recent Scan History
+          </div>
+          <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;">
+            <div class="dash-search-wrap">
+              <span class="dash-search-icon">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              </span>
+              <input type="text" placeholder="Filter by URL…" oninput="filterDashHistory(this.value)">
+            </div>
+            <button type="button" class="view-all-btn" onclick="nav('history', document.querySelectorAll('.nav-item')[2])">View all →</button>
+          </div>
+        </div>
+        <div class="table-wrap" style="border:none;border-radius:12px;background:rgba(10,16,36,0.6);">
+          <table>
+            <thead>
+              <tr>
+                <th>Date / Time</th>
+                <th>URL</th>
+                <th>Result</th>
+                <th>Risk Score</th>
+              </tr>
+            </thead>
+            <tbody id="dash-history-tbody"></tbody>
+          </table>
+          <div class="empty-state" id="dash-empty-state" style="display:none;">No results found.</div>
+        </div>
+      </div>
+
+    </div>
+    <div id="page-scan" class="page">
+      <div class="topbar">
+        <div>
+          <div class="topbar-title">Scan URL</div>
+          <div class="topbar-sub">Analyze any URL for phishing indicators</div>
+        </div>
+        <div class="topbar-right">
+          <div class="topbar-name">Alex Johnson</div>
+          <div class="avatar">AJ</div>
+        </div>
+      </div>
+
+      <div class="scan-wrapper" style="max-width:780px;">
+        <div class="scan-hero">
+          <h2>Detect Phishing Instantly</h2>
+        </div>
+
+        <div class="scan-box">
+          <input type="text" id="scan-input" placeholder="https://suspicious-domain.example.com/login">
+          <button type="button" class="scan-btn" id="scan-btn" onclick="startScan()">
+            <span id="scan-btn-text">Scan URL</span>
+          </button>
+        </div>
+
+        <div class="scanning-anim" id="scanning-anim">
+          <div class="pulse-ring"><div class="pulse-inner"></div></div>
+          <div style="font-weight:600;color:var(--slate-300);margin-bottom:.25rem;">Analyzing URL...</div>
+          <div style="font-size:.8rem;">Extracting features · Running Random Forest · Checking DB cache</div>
+        </div>
+
+        <div class="result-card" id="result-card">
+          <!-- Header: URL + verdict badge -->
+          <div class="result-header">
+            <div class="result-url" id="result-url"></div>
+            <div class="badge" id="result-badge"></div>
+          </div>
+
+          <!-- Overall confidence bar -->
+          <div class="confidence-label">Model Confidence Score</div>
+          <div class="confidence-row">
+            <div class="confidence-bar-wrap"><div class="confidence-bar" id="conf-bar" style="width:0%"></div></div>
+            <div class="confidence-pct" id="conf-pct">0%</div>
+          </div>
+
+          <!-- Quick meta row -->
+          <div class="result-meta">
+            <div class="meta-item"><label>SSL / HTTPS</label><span id="meta-ssl">—</span></div>
+            <div class="meta-item"><label>Has Digits</label><span id="meta-digits">—</span></div>
+            <div class="meta-item"><label>Source</label><span id="meta-source">—</span></div>
+          </div>
+
+          <!-- ── FEATURE BREAKDOWN ── -->
+          <div class="feature-breakdown">
+            <div class="feature-breakdown-title">Feature Analysis</div>
+            <div class="feature-grid" id="feature-grid">
+              <!-- Injected by JS -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── HISTORY PAGE ── -->
+    <div id="page-history" class="page">
+      <div class="topbar">
+        <div>
+          <div class="topbar-title">Scan History</div>
+          <div class="topbar-sub">All previously scanned URLs and results</div>
+        </div>
+        <div class="topbar-right">
+          <div class="topbar-name">Alex Johnson</div>
+          <div class="avatar">AJ</div>
+        </div>
+      </div>
+
+      <div class="history-header">
+        <div class="search-wrap">
+          <span class="search-icon">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          </span>
+          <input type="text" id="history-search" placeholder="Search by URL..." oninput="filterHistory(this.value)">
+        </div>
+        <div class="history-count" id="history-count">Showing 12 results</div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Date / Time</th>
+              <th>URL</th>
+              <th>Result</th>
+              <th>Risk Score</th>
+            </tr>
+          </thead>
+          <tbody id="history-tbody"></tbody>
+        </table>
+        <div class="empty-state" id="empty-state" style="display:none;">No results match your search.</div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+  
+═══════════════════════════════════════════════════════════════ */
+
+const API = 'http://127.0.0.1:8000';
+let splitChart;
+let activityChart;
+
+/* ── Session state ── */
+// currentUser is persisted in sessionStorage so page refreshes don't force re-login
+let currentUser   = JSON.parse(sessionStorage.getItem('phishguard_user') || 'null');
+let historyData   = [];   // current user only  → History page
+let globalData    = [];   // all users combined → Dashboard
+let doughnutChart = null;
+let lineChart     = null;
+
+// Restore session on load — clear if corrupted (missing email)
+if (currentUser) {
+  if (!currentUser.email) {
+    sessionStorage.removeItem('phishguard_user');
+    currentUser = null;
+  } else {
+    document.addEventListener('DOMContentLoaded', () => enterDashboard(true));
+  }
+}
+
+/* ── Atomic view switcher — never leaves both views hidden ── */
+function showView(viewId) {
+  ['auth-view', 'main-view'].forEach(id => {
+    document.getElementById(id).classList.toggle('active', id === viewId);
+  });
+}
+
+/* ══════════════════════════════════════════
+   TOAST NOTIFICATION SYSTEM
+══════════════════════════════════════════ */
+function toast(msg, type = 'info') {
+  // Remove any existing toast
+  document.querySelectorAll('.pg-toast').forEach(t => t.remove());
+
+  const colors = {
+    success : { bg:'rgba(16,185,129,0.15)', border:'rgba(16,185,129,0.4)', text:'#34d399' },
+    error   : { bg:'rgba(244,63,94,0.15)',  border:'rgba(244,63,94,0.4)',  text:'#fb7185' },
+    info    : { bg:'rgba(99,102,241,0.15)', border:'rgba(99,102,241,0.4)', text:'#818cf8' },
+    warn    : { bg:'rgba(245,158,11,0.15)', border:'rgba(245,158,11,0.4)', text:'#fbbf24' },
+  };
+  const c = colors[type] || colors.info;
+  const icons = { success:'✓', error:'✕', info:'ℹ', warn:'⚠' };
+
+  const el = document.createElement('div');
+  el.className = 'pg-toast';
+  el.innerHTML = `<span style="font-size:1rem;">${icons[type]}</span> ${msg}`;
+  Object.assign(el.style, {
+    position:'fixed', bottom:'1.5rem', right:'1.5rem', zIndex:'9999',
+    display:'flex', alignItems:'center', gap:'.6rem',
+    padding:'.75rem 1.25rem', borderRadius:'12px',
+    background: c.bg, border:`1px solid ${c.border}`, color: c.text,
+    fontFamily:"'Syne',sans-serif", fontWeight:'600', fontSize:'.85rem',
+    boxShadow:'0 8px 32px rgba(0,0,0,0.4)',
+    animation:'toastIn .3s ease both',
+  });
+  document.head.insertAdjacentHTML('beforeend',
+    `<style>@keyframes toastIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}</style>`);
+  document.body.appendChild(el);
+  setTimeout(() => el.style.opacity = '0', 3200);
+  setTimeout(() => el.remove(), 3600);
+}
+
+/* ══════════════════════════════════════════
+   LOADING BUTTON HELPERS
+══════════════════════════════════════════ */
+function setBtnLoading(btn, loading, label) {
+  btn.disabled = loading;
+  btn.style.opacity = loading ? '.7' : '1';
+  btn.textContent = loading ? 'Please wait…' : label;
+}
+
+/* ══════════════════════════════════════════
+   AUTH — PANEL TOGGLE
+══════════════════════════════════════════ */
+function showPanel(p) {
+  document.getElementById('login-panel').style.display    = p === 'login'    ? 'block' : 'none';
+  document.getElementById('register-panel').style.display = p === 'register' ? 'block' : 'none';
+  // Clear any error messages on switch
+  document.querySelectorAll('.auth-error').forEach(e => e.remove());
+}
+
+function showAuthError(panelId, msg) {
+  document.querySelectorAll(`#${panelId} .auth-error`).forEach(e => e.remove());
+  const el = document.createElement('div');
+  el.className = 'auth-error';
+  el.textContent = msg;
+  Object.assign(el.style, {
+    background:'rgba(244,63,94,0.1)', border:'1px solid rgba(244,63,94,0.3)',
+    color:'#fb7185', borderRadius:'8px', padding:'.6rem .9rem',
+    fontSize:'.82rem', fontWeight:'600', marginBottom:'1rem',
+  });
+  const btn = document.querySelector(`#${panelId} .btn-primary`);
+  btn.parentNode.insertBefore(el, btn);
+}
+
+/* ── REGISTER ── */
+async function doRegister() {
+  const name  = document.getElementById('reg-name').value.trim();
+  const email = document.getElementById('reg-email').value.trim();
+  const pass  = document.getElementById('reg-pass').value;
+  const conf  = document.getElementById('reg-conf').value;
+
+  if (!name || !email || !pass || !conf) {
+    showAuthError('register-panel', 'All fields are required.'); return;
+  }
+  if (pass !== conf) {
+    showAuthError('register-panel', 'Passwords do not match.'); return;
+  }
+  if (pass.length < 6) {
+    showAuthError('register-panel', 'Password must be at least 6 characters.'); return;
+  }
+
+  const btn = document.querySelector('#register-panel .btn-primary');
+  setBtnLoading(btn, true, 'Create Account');
+
+  try {
+    const res  = await fetch(`${API}/register`, {
+      method : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body   : JSON.stringify({ name, email, password: pass }),
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      showAuthError('register-panel', data.detail || 'Registration failed.');
+    } else {
+      toast('Account created! Please sign in.', 'success');
+      showPanel('login');
+      document.getElementById('login-email').value = email;
+    }
+  } catch {
+    showAuthError('register-panel', 'Cannot reach server. Is FastAPI running?');
+  } finally {
+    setBtnLoading(btn, false, 'Create Account');
+  }
+}
+
+/* ── LOGIN ── */
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pass  = document.getElementById('login-pass').value;
+
+  if (!email || !pass) {
+    showAuthError('login-panel', 'Email and password are required.'); return;
+  }
+
+  const btn = document.querySelector('#login-panel .btn-primary');
+  setBtnLoading(btn, true, 'Sign In');
+
+  try {
+    const res  = await fetch(`${API}/login`, {
+      method : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body   : JSON.stringify({ email, password: pass }),
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      showAuthError('login-panel', data.detail || 'Invalid email or password.');
+    } else {
+      // data = { status, user: { name, email } }
+      currentUser = data.user;
+      sessionStorage.setItem('phishguard_user', JSON.stringify(currentUser));
+      enterDashboard();
+    }
+  } catch {
+    showAuthError('login-panel', 'Cannot reach server. Is FastAPI running on port 8000?');
+  } finally {
+    setBtnLoading(btn, false, 'Sign In');
+  }
+}
+
+/* ── ENTER DASHBOARD ── */
+async function enterDashboard(restorePage = false) {
+  // Update UI with logged-in user's name + initials
+  const name     = currentUser?.name || currentUser?.email || 'User';
+  const initials = name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0,2);
+  document.querySelectorAll('.avatar').forEach(a => a.textContent = initials);
+  document.querySelectorAll('.topbar-name').forEach(n => n.textContent = name);
+
+  // Switch to main view
+  showView('main-view');
+
+  // On session restore, silently re-activate the page the user was on
+  // We do NOT call nav() here because nav() clears all pages and re-renders,
+  // which would wipe the result card. Instead we directly set active classes.
+  if (restorePage) {
+    const savedPage = sessionStorage.getItem('phishguard_page') || 'dashboard';
+    const pageEl = document.getElementById('page-' + savedPage);
+    if (pageEl) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      pageEl.classList.add('active');
+      const navEl = document.querySelector(`.nav-item[onclick*="'${savedPage}'"]`);
+      if (navEl) navEl.classList.add('active');
+      // If restoring to scan page, re-render the last result
+      if (savedPage === 'scan') restoreLastScan();
+    }
+  }
+
+  // Init charts (once) then load history from API
+  initCharts();
+  await Promise.all([loadGlobalData(), loadHistory(), loadDashboardStats()]);
+}
+
+
+function loadDashboardCharts() {
+  // Handled by loadDashboardStats — nothing extra needed
+}
+
+/* ── LOGOUT ── */
+function logout() {
+  currentUser = null;
+  historyData = [];
+  sessionStorage.removeItem('phishguard_user');
+  showView('auth-view');
+  showPanel('login');
+  toast('Signed out successfully.', 'info');
+}
+
+/* ══════════════════════════════════════════
+   SIDEBAR NAVIGATION
+══════════════════════════════════════════ */
+function nav(page, el) {
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  el.classList.add('active');
+
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+
+  sessionStorage.setItem('phishguard_page', page);  // remember active page
+  closeSidebar();
+
+  // DASHBOARD (ADD THIS)
+  if (page === 'dashboard') {
+    loadDashboardStats();
+  }
+
+  // HISTORY
+  if (page === 'history') {
+    loadHistory();       // re-fetch user-only history
+  }
+
+  // DASHBOARD
+  if (page === 'dashboard') {
+    loadGlobalData();      // re-fetch dashboard table
+    loadDashboardStats();  // re-fetch cards + charts
+  }
+
+  // SCAN
+  if (page === 'scan') {
+    restoreLastScan();
+  }
+}
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebar-overlay').classList.toggle('open');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebar-overlay').classList.remove('open');
+}
+
+/* ══════════════════════════════════════════
+   CHARTS  (live data from history)
+══════════════════════════════════════════ */
+let chartsInit = false;
+
+function initCharts() {
+  if (chartsInit) return;
+  chartsInit = true;
+
+  /* Doughnut — will be updated with real data once history loads */
+  doughnutChart = new Chart(document.getElementById('doughnutChart'), {
+    type: 'doughnut',
+    data: {
+      datasets: [{
+        data: [0, 1],
+        backgroundColor: ['rgba(244,63,94,0.85)', 'rgba(16,185,129,0.85)'],
+        borderColor:     ['rgba(244,63,94,0.3)',  'rgba(16,185,129,0.3)'],
+        borderWidth: 2, hoverOffset: 6,
+      }],
+      labels: ['Phishing', 'Safe'],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true, cutout: '72%',
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed.toLocaleString()}` } },
+      },
+    },
+  });
+
+  /* Line — static 7-day placeholder (no daily aggregate endpoint exists) */
+  lineChart = new Chart(document.getElementById('lineChart'), {
+    type: 'line',
+    data: {
+      labels: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
+      datasets: [
+        {
+          label: 'Total Scans',
+          data: [0,0,0,0,0,0,0],
+          borderColor:'#6366f1', backgroundColor:'rgba(99,102,241,0.08)',
+          borderWidth:2.5, pointRadius:4, pointBackgroundColor:'#6366f1',
+          tension:0.4, fill:true,
+        },
+        {
+          label: 'Phishing',
+          data: [0,0,0,0,0,0,0],
+          borderColor:'#f43f5e', backgroundColor:'rgba(244,63,94,0.06)',
+          borderWidth:2, pointRadius:4, pointBackgroundColor:'#f43f5e',
+          tension:0.4, fill:true,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { labels:{ color:'#94a3b8', font:{family:'Syne',size:11}, boxWidth:10, padding:16 } },
+        tooltip: { mode:'index', intersect:false },
+      },
+      scales: {
+        x: { grid:{color:'rgba(99,102,241,0.07)'}, ticks:{color:'#64748b', font:{family:'Syne',size:11}} },
+        y: { grid:{color:'rgba(99,102,241,0.07)'}, ticks:{color:'#64748b', font:{family:'Space Mono',size:10}} },
+      },
+    },
+  });
+}
+
+/* Update charts & stat cards from loaded history */
+function updateDashboardStats(rows) {
+  const total    = rows.length;
+  const phishing = rows.filter(r => (r.result || '').toLowerCase() === 'phishing').length;
+  const safe     = total - phishing;
+  const threatPct = total ? Math.round((phishing / total) * 100) : 0;
+
+  // Stat cards — only update if dashboard is in DOM
+  const indVal = document.querySelector('.stat-card.indigo .stat-value');
+  const roseVal= document.querySelector('.stat-card.rose .stat-value');
+  const emVal  = document.querySelector('.stat-card.emerald .stat-value');
+  if (indVal)  indVal.textContent  = total.toLocaleString();
+  if (roseVal) roseVal.textContent = phishing.toLocaleString();
+  if (emVal)   emVal.textContent   = safe.toLocaleString();
+
+  // Gauge
+  const gaugePct    = document.querySelector('.gauge-pct');
+  const gaugeCircle = document.querySelector('.gauge-svg circle:last-child');
+  const gaugeLabel  = document.querySelector('.stat-card.amber [style*="font-size:.75rem"]');
+  if (gaugePct) gaugePct.textContent = threatPct + '%';
+  if (gaugeCircle) {
+    const offset = 175.9 - (threatPct / 100) * 175.9;
+    gaugeCircle.setAttribute('stroke-dashoffset', offset.toFixed(1));
+  }
+  if (gaugeLabel) {
+    gaugeLabel.textContent = threatPct < 20 ? 'LOW' : threatPct < 50 ? 'MODERATE' : 'HIGH';
+  }
+
+  // Doughnut chart
+  if (doughnutChart) {
+    doughnutChart.data.datasets[0].data = [phishing || 0, safe || 1];
+    doughnutChart.update();
+  }
+
+  // Line chart
+  if (lineChart) {
+    const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const totalByDay = new Array(7).fill(0);
+    const phishByDay = new Array(7).fill(0);
+    const now = new Date();
+    rows.forEach(r => {
+      // Handle "YYYY-MM-DD HH:MM" format from backend (replace space with T for ISO parsing)
+      const rawDt = (r.dt || r.time || '').replace(' ', 'T');
+      const d    = new Date(rawDt);
+      if (isNaN(d.getTime())) return;  // skip rows with unparseable dates
+      const diff = Math.floor((now - d) / 86400000);
+      if (diff >= 0 && diff < 7) {
+        const idx = 6 - diff;
+        totalByDay[idx]++;
+        if ((r.result || '').toLowerCase() === 'phishing') phishByDay[idx]++;
+      }
+    });
+    const labels = [];
+    for (let i = 6; i >= 0; i--) {
+      labels.push(days[new Date(now - i * 86400000).getDay()]);
+    }
+    lineChart.data.labels            = labels;
+    lineChart.data.datasets[0].data  = totalByDay;
+    lineChart.data.datasets[1].data  = phishByDay;
+    lineChart.update();
+  }
+}
+
+/* ══════════════════════════════════════════
+   GLOBAL DATA — GET /history/all
+   Loads ALL users' scans → drives dashboard
+══════════════════════════════════════════ */
+async function loadGlobalData() {
+  try {
+    const res = await fetch(`${API}/history/all`);
+    if (!res.ok) throw new Error(`Global history fetch failed: ${res.status}`);
+    const raw = await res.json();
+
+    globalData = raw.map(r => {
+      const label   = r.result || r.output || 'Safe';
+      const isPhish = label.toLowerCase() === 'phishing';
+      return {
+        dt    : r.time || r.dt || '—',
+        url   : r.url,
+        result: isPhish ? 'Phishing' : 'Safe',
+        score : isPhish ? 90 : 5,
+        source: r.source || 'database',
+        user  : r.user  || '—',
+      };
+    });
+
+    // /history/all → only drives the dashboard recent table
+    renderDashHistory(globalData);
+  } catch (err) {
+    console.warn('Global data load error:', err);
+  }
+}
+
+/* ══════════════════════════════════════════
+   USER HISTORY — GET /history/{email}
+   Loads only current user's scans → History page
+══════════════════════════════════════════ */
+async function loadHistory() {
+  if (!currentUser) return;
+  try {
+    const res = await fetch(`${API}/history/${encodeURIComponent(currentUser.email)}`);
+    if (!res.ok) throw new Error(`History fetch failed: ${res.status}`);
+    const raw = await res.json();
+
+    const fetched = raw.map(r => {
+      const label   = r.result || r.output || 'Safe';
+      const isPhish = label.toLowerCase() === 'phishing';
+      return {
+        dt    : r.time || r.dt || '—',
+        url   : r.url,
+        result: isPhish ? 'Phishing' : 'Safe',
+        score : isPhish ? 90 : 5,
+        source: r.source || 'database',
+      };
+    });
+
+    // Merge local session scans not yet in server response
+    const serverUrls = new Set(fetched.map(r => r.url));
+    const localOnly  = historyData.filter(r => !serverUrls.has(r.url));
+    historyData = [...localOnly, ...fetched];
+
+    renderHistory(historyData);
+  } catch (err) {
+    console.warn('History load error:', err);
+    toast('Could not load history from server.', 'warn');
+  }
+}
+async function loadDashboardStats() {
+  try {
+    const res  = await fetch(`${API}/dashboard-stats`);
+    if (!res.ok) throw new Error(`Stats fetch failed: ${res.status}`);
+    const data = await res.json();
+
+    // ── Stat cards ──
+    const totalEl   = document.querySelector('.stat-card.indigo .stat-value');
+    const phishEl   = document.querySelector('.stat-card.rose .stat-value');
+    const safeEl    = document.querySelector('.stat-card.emerald .stat-value');
+    if (totalEl) totalEl.textContent = (data.total_scanned   || 0).toLocaleString();
+    if (phishEl) phishEl.textContent = (data.phishing_detected || 0).toLocaleString();
+    if (safeEl)  safeEl.textContent  = (data.safe_urls        || 0).toLocaleString();
+
+    // ── Threat gauge ──
+    const threatPct   = data.threat_level || 0;
+    const gaugePct    = document.querySelector('.gauge-pct');
+    const gaugeCircle = document.querySelector('.gauge-svg circle:last-child');
+    const gaugeLabel  = document.querySelector('.stat-card.amber [style*="font-size:.75rem"]');
+    if (gaugePct)    gaugePct.textContent = Math.round(threatPct) + '%';
+    if (gaugeCircle) gaugeCircle.setAttribute('stroke-dashoffset', (175.9 - (threatPct / 100) * 175.9).toFixed(1));
+    if (gaugeLabel)  gaugeLabel.textContent = threatPct < 20 ? 'LOW' : threatPct < 50 ? 'MODERATE' : 'HIGH';
+
+    // ── Doughnut chart ──
+    if (doughnutChart) {
+      doughnutChart.data.datasets[0].data = [data.phishing_detected || 0, data.safe_urls || 1];
+      doughnutChart.update();
+      // Update legend text
+      const legendItems = document.querySelectorAll('.chart-card [style*="display:flex;align-items:center;gap:.4rem"]');
+      if (legendItems[0]) legendItems[0].innerHTML = `<span style="width:10px;height:10px;border-radius:2px;background:var(--rose);display:inline-block;"></span> Phishing ${data.total_scanned ? Math.round((data.phishing_detected/data.total_scanned)*100) : 0}%`;
+      if (legendItems[1]) legendItems[1].innerHTML = `<span style="width:10px;height:10px;border-radius:2px;background:var(--emerald);display:inline-block;"></span> Legitimate ${data.total_scanned ? Math.round((data.safe_urls/data.total_scanned)*100) : 0}%`;
+    }
+
+    // ── Line chart (both datasets) ──
+    if (lineChart && data.daily) {
+      const labels      = Object.keys(data.daily);
+      const totalByDay  = Object.values(data.daily);
+      const phishByDay  = labels.map(d => (data.daily_phishing || {})[d] || 0);
+      lineChart.data.labels           = labels;
+      lineChart.data.datasets[0].data = totalByDay;
+      lineChart.data.datasets[1].data = phishByDay;
+      lineChart.update();
+    }
+  } catch (err) {
+    console.warn('Dashboard stats error:', err);
+  }
+}
+/* ══════════════════════════════════════════
+
+══════════════════════════════════════════ */
+const SUS_WORDS = [
+  'login','signin','verify','secure','update','confirm','account',
+  'password','billing','suspended','recover','alert','unlock','validate',
+  'authenticate','authorize','reactivate','restore','renew',
+];
+const FREE_HOSTS = ['weebly','wix','wordpress','blogspot','github.io','netlify','vercel','glitch'];
+
+function extractFeatures(url) {
+  try {
+    const lower      = url.toLowerCase();
+    const parser     = document.createElement('a');
+    parser.href      = url;
+    const domain     = parser.hostname.toLowerCase();
+    const domainNoWWW = domain.replace(/^www\./, '');
+    const firstLabel = domainNoWWW.includes('.') ? domainNoWWW.split('.')[0] : domainNoWWW;
+
+    const f0  = url.length;
+    const f1  = (url.match(/\./g) || []).length;
+    const f2  = (url.match(/-/g)   || []).length;
+    const f3  = url.startsWith('https') ? 1 : 0;
+    const f4  = /\d/.test(domain) ? 1 : 0;
+    const f5  = SUS_WORDS.some(w => lower.includes(w)) ? 1 : 0;
+    const f6  = /^\d+\.\d+\.\d+\.\d+$/.test(domain) ? 1 : 0;
+    const f7  = (url.match(/@/g) || []).length;
+    const f8  = domain.length;
+    const f9  = domain.split('.').length - 1;
+    const f10 = parser.pathname.length;
+    const f11 = (url.match(/=/g) || []).length;
+    const f12 = FREE_HOSTS.some(h => domain.includes(h)) ? 1 : 0;
+    const f13 = (firstLabel.match(/[^a-zA-Z0-9]/g) || []).length;
+    const f14 = (url.split('//').length - 1) > 1 ? 1 : 0;
+
+    return [f0,f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13,f14];
+  } catch { return Array(15).fill(0); }
+}
+
+/* Meta-data for each feature */
+const FEATURE_META = [
+  {
+    name:'URL Length', unit:'chars',
+    iconBg:'rgba(99,102,241,0.2)', iconColor:'#818cf8',
+    icon:`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="15" y2="18"/></svg>`,
+    toPercent: v => Math.min(100, Math.round((v/200)*100)),
+    toStrength: v => v>100?'high':v>60?'medium':'low',
+    riskHigh:true,
+    desc: v => v>100?`Very long (${v} chars) — phishing URLs are often padded to obscure the real domain.`:v>60?`Moderate length (${v} chars) — slightly elevated.`:`Short URL (${v} chars) — normal.`,
+  },
+  {
+    name:'Dot Count', unit:'dots',
+    iconBg:'rgba(245,158,11,0.2)', iconColor:'#fbbf24',
+    icon:`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="6" cy="12" r="2" fill="currentColor"/><circle cx="12" cy="12" r="2" fill="currentColor"/><circle cx="18" cy="12" r="2" fill="currentColor"/></svg>`,
+    toPercent: v => Math.min(100, Math.round((v/10)*100)),
+    toStrength: v => v>=5?'high':v>=3?'medium':'low',
+    riskHigh:true,
+    desc: v => v>=5?`${v} dots — deep subdomains used to mimic legit domains.`:v>=3?`${v} dots — slightly elevated.`:`${v} dots — normal depth.`,
+  },
+  {
+    name:'Hyphen Count', unit:'hyphens',
+    iconBg:'rgba(244,63,94,0.2)', iconColor:'#fb7185',
+    icon:`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>`,
+    toPercent: v => Math.min(100, Math.round((v/6)*100)),
+    toStrength: v => v>=3?'high':v>=1?'medium':'low',
+    riskHigh:true,
+    desc: v => v>=3?`${v} hyphens — strong phishing signal (e.g. paypal-secure-login.com).`:v>=1?`${v} hyphen(s) — moderate risk.`:`No hyphens — clean domain.`,
+  },
+  {
+    name:'HTTPS', unit:'',
+    iconBg:'rgba(16,185,129,0.2)', iconColor:'#34d399',
+    icon:`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`,
+    toPercent: v => v===1?15:80,
+    toStrength: v => v===0?'medium':'low',
+    riskHigh:false,
+    desc: v => v===1?`HTTPS present — encrypted, but phishing sites use HTTPS too. Not conclusive alone.`:`No HTTPS — slightly suspicious, but many legit old sites still use HTTP.`,
+  },
+  {
+    name:'Digits in Domain', unit:'',
+    iconBg:'rgba(99,102,241,0.18)', iconColor:'#a5b4fc',
+    icon:`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`,
+    toPercent: v => v===1?65:10,
+    toStrength: v => v===1?'medium':'low',
+    riskHigh:true,
+    desc: v => v===1?`Digits in domain — random numbers often indicate auto-generated phishing domains.`:`No digits — cleaner domain name.`,
+  },
+  {
+    name:'Suspicious Keywords', unit:'',
+    iconBg:'rgba(244,63,94,0.2)', iconColor:'#fb7185',
+    icon:`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
+    toPercent: v => v===1?92:5,
+    toStrength: v => v===1?'high':'low',
+    riskHigh:true,
+    desc: v => v===1?`Suspicious keyword found (login/verify/secure/etc) — top phishing indicator.`:`No suspicious keywords detected.`,
+  },
+  {
+    name:'IP Address Host', unit:'',
+    iconBg:'rgba(244,63,94,0.2)', iconColor:'#fb7185',
+    icon:`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><rect x="2" y="2" width="20" height="20" rx="2"/><path d="M9 12h6M12 9v6"/></svg>`,
+    toPercent: v => v===1?98:2,
+    toStrength: v => v===1?'high':'low',
+    riskHigh:true,
+    desc: v => v===1?`IP address used instead of domain name — strong phishing indicator. Legitimate sites use domain names.`:`Domain name used — normal.`,
+  },
+  {
+    name:'@ Symbol', unit:'',
+    iconBg:'rgba(244,63,94,0.2)', iconColor:'#fb7185',
+    icon:`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-3.92 7.94"/></svg>`,
+    toPercent: v => v>0?95:2,
+    toStrength: v => v>0?'high':'low',
+    riskHigh:true,
+    desc: v => v>0?`@ symbol in URL — browser ignores everything before @, used to disguise real destination.`:`No @ symbol — clean URL structure.`,
+  },
+  {
+    name:'Domain Length', unit:'chars',
+    iconBg:'rgba(99,102,241,0.2)', iconColor:'#818cf8',
+    icon:`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>`,
+    toPercent: v => Math.min(100, Math.round((v/50)*100)),
+    toStrength: v => v>30?'high':v>20?'medium':'low',
+    riskHigh:true,
+    desc: v => v>30?`Long domain (${v} chars) — overly long domain names are common in phishing.`:v>20?`Moderate domain length (${v} chars).`:`Short domain (${v} chars) — typically legitimate.`,
+  },
+  {
+    name:'Subdomain Depth', unit:'levels',
+    iconBg:'rgba(245,158,11,0.2)', iconColor:'#fbbf24',
+    icon:`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>`,
+    toPercent: v => Math.min(100, Math.round((v/6)*100)),
+    toStrength: v => v>=4?'high':v>=2?'medium':'low',
+    riskHigh:true,
+    desc: v => v>=4?`${v} subdomain levels — very deep, used to embed real brand names (e.g. paypal.evil.com).`:v>=2?`${v} levels — moderately deep.`:`${v} level — normal.`,
+  },
+  {
+    name:'Path Length', unit:'chars',
+    iconBg:'rgba(99,102,241,0.15)', iconColor:'#a5b4fc',
+    icon:`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>`,
+    toPercent: v => Math.min(100, Math.round((v/100)*100)),
+    toStrength: v => v>60?'high':v>30?'medium':'low',
+    riskHigh:true,
+    desc: v => v>60?`Long path (${v} chars) — deep paths often used to look more legitimate.`:v>30?`Moderate path length.`:`Short path — normal.`,
+  },
+  {
+    name:'Query Params (=)', unit:'',
+    iconBg:'rgba(16,185,129,0.15)', iconColor:'#34d399',
+    icon:`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><line x1="12" y1="5" x2="12" y2="19"/></svg>`,
+    toPercent: v => Math.min(100, v*25),
+    toStrength: v => v>=3?'high':v>=1?'medium':'low',
+    riskHigh:true,
+    desc: v => v>=3?`${v} parameters — many query params can be used to redirect or embed tracking tokens.`:v>=1?`${v} parameter(s) — common in phishing redirect chains.`:`No query parameters.`,
+  },
+  {
+    name:'Free Hosting', unit:'',
+    iconBg:'rgba(244,63,94,0.15)', iconColor:'#fb7185',
+    icon:`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>`,
+    toPercent: v => v===1?85:5,
+    toStrength: v => v===1?'high':'low',
+    riskHigh:true,
+    desc: v => v===1?`Free hosting platform detected (Weebly/Wix/etc) — commonly abused for phishing pages.`:`No free hosting detected.`,
+  },
+  {
+    name:'Special Chars in Domain', unit:'',
+    iconBg:'rgba(245,158,11,0.15)', iconColor:'#fbbf24',
+    icon:`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
+    toPercent: v => Math.min(100, v*30),
+    toStrength: v => v>=2?'high':v>=1?'medium':'low',
+    riskHigh:true,
+    desc: v => v>=2?`${v} special characters in domain name — unusual, often used in IDN homograph attacks.`:v>=1?`${v} special character — slightly suspicious.`:`Clean domain name characters.`,
+  },
+  {
+    name:'Double Slash in Path', unit:'',
+    iconBg:'rgba(244,63,94,0.15)', iconColor:'#fb7185',
+    icon:`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="7" y1="5" x2="5" y2="19"/><line x1="13" y1="5" x2="11" y2="19"/></svg>`,
+    toPercent: v => v===1?90:2,
+    toStrength: v => v===1?'high':'low',
+    riskHigh:true,
+    desc: v => v===1?`Double slash in path — used to embed a redirect URL inside another URL.`:`No double slash — clean URL path.`,
+  },
+];
+
+/* ── Bar colour based on strength + whether it's risky ── */
+function featureBarColor(strength, riskHigh, val) {
+  if (!riskHigh) {
+    // For HTTPS: val=1 is SAFE (green), val=0 is DANGER (red)
+    return val === 1
+      ? 'linear-gradient(90deg,#10b981,#34d399)'
+      : 'linear-gradient(90deg,#f43f5e,#fb7185)';
+  }
+  if (strength === 'high')   return 'linear-gradient(90deg,#f43f5e,#fb7185)';
+  if (strength === 'medium') return 'linear-gradient(90deg,#f59e0b,#fbbf24)';
+  return 'linear-gradient(90deg,#10b981,#34d399)';
+}
+
+/* ── Render the feature grid ── */
+function renderFeatureGrid(features, isPhish) {
+  const grid = document.getElementById('feature-grid');
+  if (!grid) return;   // scan page not in DOM yet — bail silently
+
+  grid.innerHTML = FEATURE_META.map((meta, i) => {
+    const val      = features[i] ?? 0;
+    const pct      = meta.toPercent(val);
+    const strength = meta.toStrength(val);
+    const barColor = featureBarColor(strength, meta.riskHigh, val);
+    const strLabel = strength === 'high' ? '⚠ HIGH' : strength === 'medium' ? '~ MED' : strength === 'safe' ? '✓ SAFE' : '✓ LOW';
+    const strClass = strength === 'high' ? 'str-high' : strength === 'medium' ? 'str-medium' : 'str-safe';
+    const displayVal = (i === 3 || i === 4 || i === 5) ? (val === 1 ? 'YES' : 'NO') : val;
+
+    return `<div class="feature-row">
+      <div class="feature-row-top">
+        <div class="feature-name-wrap">
+          <div class="feature-icon" style="background:${meta.iconBg};color:${meta.iconColor};">${meta.icon}</div>
+          <span class="feature-name">${meta.name}</span>
+        </div>
+        <div class="feature-value-wrap">
+          <span class="feature-val" style="color:${meta.iconColor};">${displayVal}${meta.unit ? ' ' + meta.unit : ''}</span>
+          <span class="feature-strength-tag ${strClass}">${strLabel}</span>
+        </div>
+      </div>
+      <div class="feature-bar-track">
+        <div class="feature-bar-fill" data-pct="${pct}" style="background:${barColor};"></div>
+      </div>
+      <div class="feature-desc">${meta.desc(val)}</div>
+    </div>`;
+  }).join('');
+
+  setTimeout(() => {
+    grid.querySelectorAll('.feature-bar-fill').forEach(bar => {
+      bar.style.width = bar.dataset.pct + '%';
+    });
+  }, 120);
+}
+
+/* ══════════════════════════════════════════
+   SCAN — POST /scan  { url, email }
+══════════════════════════════════════════ */
+function restoreLastScan() {
+  const saved = sessionStorage.getItem('last_scan');
+  if (!saved) return;
+  try {
+    const { url, label, isPhish, confNum, source, features } = JSON.parse(saved);
+    const resultCard = document.getElementById('result-card');
+    if (!resultCard) return;
+    const type = isPhish ? 'phish' : 'safe';
+
+    document.getElementById('result-url').textContent = url;
+    document.getElementById('scan-input').value = url;
+
+    const badge = document.getElementById('result-badge');
+    badge.textContent = isPhish ? '⚠ Phishing' : '✓ Safe';
+    badge.className   = 'badge ' + (isPhish ? 'badge-phish' : 'badge-safe');
+
+    const bar = document.getElementById('conf-bar');
+    const pct = document.getElementById('conf-pct');
+    bar.className   = 'confidence-bar ' + type;
+    pct.className   = 'confidence-pct ' + type;
+    pct.textContent = confNum + '%';
+    bar.style.width = confNum + '%';
+
+    const sslEl    = document.getElementById('meta-ssl');
+    const digitsEl = document.getElementById('meta-digits');
+    const sourceEl = document.getElementById('meta-source');
+    if (sslEl)    { sslEl.textContent    = features[3] === 1 ? '✓ HTTPS' : '✗ HTTP';   sslEl.style.color    = features[3] === 1 ? 'var(--emerald)' : 'var(--rose)'; }
+    if (digitsEl) { digitsEl.textContent = features[4] === 1 ? 'Yes' : 'No';            digitsEl.style.color = features[4] === 1 ? 'var(--rose)' : 'var(--emerald)'; }
+    if (sourceEl) { sourceEl.textContent = source === 'database' ? '⚡ Cached' : '🤖 ML Model'; sourceEl.style.color = source === 'database' ? '#818cf8' : '#34d399'; }
+
+    try { renderFeatureGrid(features, isPhish); } catch(e) {}
+    resultCard.className = 'result-card visible ' + type;
+  } catch(e) { console.warn('Could not restore last scan:', e); }
+}
+
+async function startScan() {
+  const url = document.getElementById('scan-input').value.trim();
+  if (!url) { document.getElementById('scan-input').focus(); return; }
+  if (!currentUser) { toast('Please log in first.', 'error'); return; }
+
+  const btn        = document.getElementById('scan-btn');
+  const btnTxt     = document.getElementById('scan-btn-text');
+  const anim       = document.getElementById('scanning-anim');
+  const resultCard = document.getElementById('result-card');
+
+  // ── helpers to reset UI ──
+  const resetBtn  = () => { btn.disabled = false; btn.classList.remove('scanning'); btnTxt.textContent = 'Scan URL'; };
+  const hideAnim  = () => anim.classList.remove('visible');
+
+  // ── scanning state ──
+  btn.disabled = true;
+  btn.classList.add('scanning');
+  btnTxt.textContent = 'Scanning…';
+  anim.classList.add('visible');
+  resultCard.classList.remove('visible', 'safe', 'phish');
+  sessionStorage.removeItem('last_scan');  // clear stale result while new scan runs
+
+  // Extract features client-side (mirrors model.py)
+  const features = extractFeatures(url);
+
+  // ── fetch ──
+  let res, data;
+  try {
+    res  = await fetch(`${API}/scan`, {
+      method : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body   : JSON.stringify({ url, email: currentUser.email }),
+    });
+    data = await res.json();
+  } catch (netErr) {
+    hideAnim(); resetBtn();
+    toast('Cannot reach server — is FastAPI running on port 8000?', 'error');
+    console.error('[Scan] network error:', netErr);
+    return;
+  }
+
+  // ── handle HTTP errors ──
+  if (!res.ok) {
+    hideAnim(); resetBtn();
+    const msg = data?.detail || `Server error ${res.status}`;
+    toast('Scan failed: ' + msg, 'error');
+    // Show full error in result area so it's visible without DevTools
+    resultCard.className = 'result-card visible phish';
+    document.getElementById('result-url').textContent = url;
+    document.getElementById('result-badge').textContent = '✕ Error';
+    document.getElementById('result-badge').className = 'badge badge-phish';
+    document.getElementById('conf-pct').textContent = '—';
+    const fgEl = document.getElementById('feature-grid');
+    if (fgEl) fgEl.innerHTML =
+      `<div style="grid-column:1/-1;padding:.75rem;background:rgba(244,63,94,0.1);border:1px solid rgba(244,63,94,0.3);border-radius:10px;color:#fb7185;font-size:.82rem;font-family:'Space Mono',monospace;word-break:break-all;">
+        <strong>Server Error ${res.status}</strong><br>${msg}
+      </div>`;
+    return;
+  }
+
+  // ── parse response ──
+  // Backend returns: { result, confidence: <float|"Stored in DB">, source }
+  const label     = ((data.result || data.output || 'Safe') + '').trim();
+  const isPhish   = label.toLowerCase() === 'phishing';
+  const normLabel = isPhish ? 'Phishing' : 'Safe';
+  const type      = isPhish ? 'phish' : 'safe';
+  const source    = data.source || 'ml_model';
+
+  let confNum = 95;
+  const rawConf = (data.confidence || '').toString().trim();
+  if (rawConf && rawConf !== 'Stored in DB') {
+    const p = parseFloat(rawConf.replace('%', ''));
+    if (!isNaN(p)) confNum = Math.min(100, Math.max(1, Math.round(p)));
+  }
+
+  // ── render result card ──
+  hideAnim();
+
+  document.getElementById('result-url').textContent = url;
+
+  const badge = document.getElementById('result-badge');
+  badge.textContent = isPhish ? '⚠ Phishing' : '✓ Safe';
+  badge.className   = 'badge ' + (isPhish ? 'badge-phish' : 'badge-safe');
+
+  const bar = document.getElementById('conf-bar');
+  const pct = document.getElementById('conf-pct');
+  bar.className   = 'confidence-bar ' + type;
+  pct.className   = 'confidence-pct ' + type;
+  pct.textContent = confNum + '%';
+  bar.style.width = '0%';
+  resultCard.className = 'result-card visible ' + type;
+  requestAnimationFrame(() => requestAnimationFrame(() => { bar.style.width = confNum + '%'; }));
+
+  // ── meta row ──
+  const sslEl    = document.getElementById('meta-ssl');
+  const digitsEl = document.getElementById('meta-digits');
+  const sourceEl = document.getElementById('meta-source');
+  if (sslEl)    { sslEl.textContent    = features[3] === 1 ? '✓ HTTPS' : '✗ HTTP';   sslEl.style.color    = features[3] === 1 ? 'var(--emerald)' : 'var(--rose)'; }
+  if (digitsEl) { digitsEl.textContent = features[4] === 1 ? 'Yes' : 'No';            digitsEl.style.color = features[4] === 1 ? 'var(--rose)' : 'var(--emerald)'; }
+  if (sourceEl) { sourceEl.textContent = source === 'database' ? '⚡ Cached' : '🤖 ML Model'; sourceEl.style.color = source === 'database' ? '#818cf8' : '#34d399'; }
+
+  // ── feature breakdown ──
+  try { renderFeatureGrid(features, isPhish); } catch(e) { console.warn('Feature grid:', e); }
+
+  toast(isPhish ? '⚠ Phishing URL detected!' : '✓ URL appears safe.', isPhish ? 'error' : 'success');
+
+  // ── persist last scan result so it survives page navigation ──
+  sessionStorage.setItem('last_scan', JSON.stringify({
+    url, label: normLabel, isPhish, confNum, source,
+    features: Array.from(features),
+  }));
+
+  // ── update history cache ──
+  try {
+    const dt = new Date().toISOString().replace('T', ' ').substring(0, 16);
+    const newEntry = { dt, url, result: normLabel, score: confNum, source };
+    historyData.unshift(newEntry);  // user's own history
+    globalData.unshift(newEntry);   // global history for dashboard
+
+    // Only update history table if that page is open
+    if (document.getElementById('page-history')?.classList.contains('active')) {
+      renderHistory(historyData);
+    }
+
+    renderDashHistory(globalData);
+    loadDashboardStats();  // re-fetch from server for accurate global counts
+  } catch (renderErr) {
+    console.warn('[Scan] UI update error (non-fatal):', renderErr);
+  }
+
+  // ── reset button last ──
+  resetBtn();
+}
+
+/* ══════════════════════════════════════════
+   RENDER HELPERS
+══════════════════════════════════════════ */
+function rowHTML(r, showSource = false) {
+  // Normalise — backend sends "Phishing"/"Safe", local cache matches after loadHistory fix
+  const isPhish    = (r.result || '').toLowerCase() === 'phishing';
+  const badgeClass = isPhish ? 'badge-phish' : 'badge-safe';
+  const badgeText  = isPhish ? '⚠ Phishing'  : '✓ Safe';
+  const scoreVal   = r.score ?? (isPhish ? 90 : 5);
+  const riskClass  = scoreVal > 70 ? 'risk-high' : scoreVal > 30 ? 'risk-mid' : 'risk-low';
+  const srcTag     = showSource && r.source === 'database'
+    ? `<span style="font-size:.65rem;padding:.15rem .45rem;border-radius:4px;background:rgba(99,102,241,0.15);color:#818cf8;border:1px solid rgba(99,102,241,0.25);margin-left:.4rem;">cached</span>`
+    : '';
+  const displayDt  = r.dt || r.time || '—';
+  return `<tr>
+    <td class="td-date">${displayDt}</td>
+    <td class="td-url" title="${r.url}">${r.url}${srcTag}</td>
+    <td><span class="badge ${badgeClass}">${badgeText}</span></td>
+    <td><span class="risk-score ${riskClass}">${scoreVal}%</span></td>
+  </tr>`;
+}
+
+/* Dashboard mini-table — top 6 rows */
+function renderDashHistory(data) {
+  const tbody = document.getElementById('dash-history-tbody');
+  const empty = document.getElementById('dash-empty-state');
+  const rows  = data.slice(0, 6);
+  if (!rows.length) { tbody.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+  tbody.innerHTML = rows.map(r => rowHTML(r)).join('');
+}
+
+let _dashFilter = '';
+function filterDashHistory(q) {
+  _dashFilter = q.toLowerCase();
+  const filtered = historyData.filter(r => r.url.toLowerCase().includes(_dashFilter));
+  renderDashHistory(filtered);
+}
+
+/* Full history page table */
+function renderHistory(data) {
+  const tbody = document.getElementById('history-tbody');
+  const empty = document.getElementById('empty-state');
+  const countEl = document.getElementById('history-count');
+
+  // Elements only exist when history page is active — skip silently if not
+  if (!tbody) return;
+
+  if (countEl) {
+    countEl.textContent = `Showing ${data.length} result${data.length !== 1 ? 's' : ''}`;
+  }
+
+  if (!data.length) { tbody.innerHTML = ''; if (empty) empty.style.display = 'block'; return; }
+  if (empty) empty.style.display = 'none';
+  tbody.innerHTML = data.map(r => rowHTML(r, true)).join('');
+}
+
+let _histFilter = '';
+function filterHistory(q) {
+  _histFilter = q.toLowerCase();
+  const filtered = historyData.filter(r => r.url.toLowerCase().includes(_histFilter));
+  renderHistory(filtered);
+}
+
+/* ══════════════════════════════════════════
+   KEYBOARD SHORTCUTS
+══════════════════════════════════════════ */
+// Attach keyboard shortcuts after DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+  const scanInput = document.getElementById('scan-input');
+  if (scanInput) scanInput.addEventListener('keydown', e => { if (e.key === 'Enter') startScan(); });
+
+  const loginPass = document.getElementById('login-pass');
+  if (loginPass) loginPass.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+});
+
+// Global safety net — catch ANY uncaught JS error and show it as a toast
+// instead of silently resetting the page state
+window.addEventListener('error', e => {
+  console.error('[PhishGuard Global Error]', e.message, e.filename, e.lineno);
+  toast(`JS Error: ${e.message} (line ${e.lineno})`, 'error');
+  e.preventDefault(); // stop browser default error handling
+});
+window.addEventListener('unhandledrejection', e => {
+  console.error('[PhishGuard Unhandled Promise]', e.reason);
+  toast(`Async error: ${e.reason?.message || e.reason}`, 'error');
+  e.preventDefault();
+});
+</script>
+</body>
+</html>
