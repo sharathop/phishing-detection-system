@@ -619,7 +619,9 @@
     <div class="hero-title">
       AI-Powered<br><span>Phishing Detection</span><br>& Classification
     </div>
-  
+    <div class="hero-desc">
+      Protect your organization from sophisticated phishing attacks in real time. Our engine analyzes 40+ threat indicators with 99.2% accuracy.
+    </div>
 
     <div class="hero-features">
       <div class="hero-feature">
@@ -628,7 +630,7 @@
         </div>
         <div class="hero-feature-text">
           <strong>Real-time URL Analysis</strong>
-          
+          <span>Scan any URL in under 2 seconds</span>
         </div>
       </div>
     </div>
@@ -650,7 +652,7 @@
       <div class="field"><label>Email Address</label><input type="email" placeholder="you@domain.com" id="login-email"></div>
       <div class="field"><label>Password</label><input type="password" placeholder="••••••••" id="login-pass"></div>
       <div class="remember-row">
-        <label><input type="checkbox" checked> Remember me</label>
+       
         <a href="#">Forgot password?</a>
       </div>
       <button type="button" class="btn-primary" onclick="doLogin()">Sign In</button>
@@ -852,6 +854,7 @@
       <div class="scan-wrapper" style="max-width:780px;">
         <div class="scan-hero">
           <h2>Detect Phishing Instantly</h2>
+          <p>Paste any suspicious URL below. Our AI engine analyzes 6 key features using a Random Forest classifier trained on thousands of URLs.</p>
         </div>
 
         <div class="scan-box">
@@ -953,8 +956,7 @@ let activityChart;
 /* ── Session state ── */
 // currentUser is persisted in sessionStorage so page refreshes don't force re-login
 let currentUser   = JSON.parse(sessionStorage.getItem('phishguard_user') || 'null');
-let historyData   = [];   // current user only  → History page
-let globalData    = [];   // all users combined → Dashboard
+let historyData   = [];
 let doughnutChart = null;
 let lineChart     = null;
 
@@ -1130,6 +1132,7 @@ async function enterDashboard(restorePage = false) {
 
   // Switch to main view
   showView('main-view');
+  document.getElementById('chat-bubble').style.display = 'flex';
 
   // On session restore, silently re-activate the page the user was on
   // We do NOT call nav() here because nav() clears all pages and re-renders,
@@ -1150,12 +1153,38 @@ async function enterDashboard(restorePage = false) {
 
   // Init charts (once) then load history from API
   initCharts();
-  await Promise.all([loadGlobalData(), loadHistory(), loadDashboardStats()]);
+  await loadHistory();
+  loadDashboardStats();
+  loadDashboardCharts();
 }
 
 
-function loadDashboardCharts() {
-  // Handled by loadDashboardStats — nothing extra needed
+async function loadDashboardCharts() {
+  try {
+    const res  = await fetch(`${API}/dashboard-stats`);
+    const data = await res.json();
+
+    // PIE CHART
+    if (doughnutChart) {
+      doughnutChart.data.datasets[0].data = [
+        data.phishing_detected || 0,
+        data.safe_urls || 0
+      ];
+      doughnutChart.update();
+    }
+
+    // LINE CHART
+    if (lineChart && data.daily) {
+      const labels = Object.keys(data.daily);
+      lineChart.data.labels = labels;
+      lineChart.data.datasets[0].data = labels.map(d => data.daily[d] || 0);
+      lineChart.data.datasets[1].data = labels.map(d => (data.daily_phishing && data.daily_phishing[d]) || 0);
+      lineChart.update();
+      lineChart.resize();
+    }
+  } catch(e) {
+    console.error('Chart load error:', e);
+  }
 }
 
 /* ── LOGOUT ── */
@@ -1163,6 +1192,8 @@ function logout() {
   currentUser = null;
   historyData = [];
   sessionStorage.removeItem('phishguard_user');
+  document.getElementById('chat-bubble').style.display = 'none';
+  document.getElementById('chat-window').style.display = 'none';
   showView('auth-view');
   showPanel('login');
   toast('Signed out successfully.', 'info');
@@ -1188,13 +1219,7 @@ function nav(page, el) {
 
   // HISTORY
   if (page === 'history') {
-    loadHistory();       // re-fetch user-only history
-  }
-
-  // DASHBOARD
-  if (page === 'dashboard') {
-    loadGlobalData();      // re-fetch dashboard table
-    loadDashboardStats();  // re-fetch cards + charts
+    loadHistory();
   }
 
   // SCAN
@@ -1341,38 +1366,7 @@ function updateDashboardStats(rows) {
 }
 
 /* ══════════════════════════════════════════
-   GLOBAL DATA — GET /history/all
-   Loads ALL users' scans → drives dashboard
-══════════════════════════════════════════ */
-async function loadGlobalData() {
-  try {
-    const res = await fetch(`${API}/history/all`);
-    if (!res.ok) throw new Error(`Global history fetch failed: ${res.status}`);
-    const raw = await res.json();
-
-    globalData = raw.map(r => {
-      const label   = r.result || r.output || 'Safe';
-      const isPhish = label.toLowerCase() === 'phishing';
-      return {
-        dt    : r.time || r.dt || '—',
-        url   : r.url,
-        result: isPhish ? 'Phishing' : 'Safe',
-        score : isPhish ? 90 : 5,
-        source: r.source || 'database',
-        user  : r.user  || '—',
-      };
-    });
-
-    // /history/all → only drives the dashboard recent table
-    renderDashHistory(globalData);
-  } catch (err) {
-    console.warn('Global data load error:', err);
-  }
-}
-
-/* ══════════════════════════════════════════
-   USER HISTORY — GET /history/{email}
-   Loads only current user's scans → History page
+   HISTORY — load from GET /history/{email}
 ══════════════════════════════════════════ */
 async function loadHistory() {
   if (!currentUser) return;
@@ -1381,75 +1375,70 @@ async function loadHistory() {
     if (!res.ok) throw new Error(`History fetch failed: ${res.status}`);
     const raw = await res.json();
 
+    // Backend GET /history/{email} returns:
+    // [{ url, result, time }]  — "result" holds "Safe" or "Phishing"
     const fetched = raw.map(r => {
-      const label   = r.result || r.output || 'Safe';
+      // Defensive: accept either 'result' or 'output' key from backend
+      const label  = r.result || r.output || 'Safe';
       const isPhish = label.toLowerCase() === 'phishing';
       return {
         dt    : r.time || r.dt || '—',
         url   : r.url,
-        result: isPhish ? 'Phishing' : 'Safe',
+        result: isPhish ? 'Phishing' : 'Safe',   // normalise to exact casing
         score : isPhish ? 90 : 5,
-        source: r.source || 'database',
+        source: r.source || 'model',
       };
     });
-
-    // Merge local session scans not yet in server response
+    // Merge: keep any in-memory items (from this session's scans) that aren't in server response yet
     const serverUrls = new Set(fetched.map(r => r.url));
     const localOnly  = historyData.filter(r => !serverUrls.has(r.url));
     historyData = [...localOnly, ...fetched];
 
     renderHistory(historyData);
+    renderDashHistory(historyData);
+    
   } catch (err) {
     console.warn('History load error:', err);
     toast('Could not load history from server.', 'warn');
   }
 }
 async function loadDashboardStats() {
-  try {
-    const res  = await fetch(`${API}/dashboard-stats`);
-    if (!res.ok) throw new Error(`Stats fetch failed: ${res.status}`);
-    const data = await res.json();
+    try {
+        const res = await fetch(`${API}/dashboard-stats`);
+        const data = await res.json();
 
-    // ── Stat cards ──
-    const totalEl   = document.querySelector('.stat-card.indigo .stat-value');
-    const phishEl   = document.querySelector('.stat-card.rose .stat-value');
-    const safeEl    = document.querySelector('.stat-card.emerald .stat-value');
-    if (totalEl) totalEl.textContent = (data.total_scanned   || 0).toLocaleString();
-    if (phishEl) phishEl.textContent = (data.phishing_detected || 0).toLocaleString();
-    if (safeEl)  safeEl.textContent  = (data.safe_urls        || 0).toLocaleString();
+        // ===== CARDS =====
+        document.getElementById("total-scanned").innerText =
+            data.total_scanned;
 
-    // ── Threat gauge ──
-    const threatPct   = data.threat_level || 0;
-    const gaugePct    = document.querySelector('.gauge-pct');
-    const gaugeCircle = document.querySelector('.gauge-svg circle:last-child');
-    const gaugeLabel  = document.querySelector('.stat-card.amber [style*="font-size:.75rem"]');
-    if (gaugePct)    gaugePct.textContent = Math.round(threatPct) + '%';
-    if (gaugeCircle) gaugeCircle.setAttribute('stroke-dashoffset', (175.9 - (threatPct / 100) * 175.9).toFixed(1));
-    if (gaugeLabel)  gaugeLabel.textContent = threatPct < 20 ? 'LOW' : threatPct < 50 ? 'MODERATE' : 'HIGH';
+        document.getElementById("phishing-detected").innerText =
+            data.phishing_detected;
 
-    // ── Doughnut chart ──
-    if (doughnutChart) {
-      doughnutChart.data.datasets[0].data = [data.phishing_detected || 0, data.safe_urls || 1];
-      doughnutChart.update();
-      // Update legend text
-      const legendItems = document.querySelectorAll('.chart-card [style*="display:flex;align-items:center;gap:.4rem"]');
-      if (legendItems[0]) legendItems[0].innerHTML = `<span style="width:10px;height:10px;border-radius:2px;background:var(--rose);display:inline-block;"></span> Phishing ${data.total_scanned ? Math.round((data.phishing_detected/data.total_scanned)*100) : 0}%`;
-      if (legendItems[1]) legendItems[1].innerHTML = `<span style="width:10px;height:10px;border-radius:2px;background:var(--emerald);display:inline-block;"></span> Legitimate ${data.total_scanned ? Math.round((data.safe_urls/data.total_scanned)*100) : 0}%`;
+        document.getElementById("safe-urls").innerText =
+            data.safe_urls;
+
+        // ===== DOUGHNUT CHART =====
+        if (doughnutChart) {
+            doughnutChart.data.datasets[0].data = [
+                data.phishing_detected,
+                data.safe_urls
+            ];
+            doughnutChart.update();
+        }
+
+        // ===== LINE CHART =====
+        if (lineChart && data.daily) {
+            const labels = Object.keys(data.daily);
+            const values = Object.values(data.daily);
+
+            lineChart.data.labels = labels;
+            lineChart.data.datasets[0].data = values;
+            lineChart.update();
+        }
+
+    } catch (err) {
+        console.error("Dashboard stats error:", err);
     }
-
-    // ── Line chart (both datasets) ──
-    if (lineChart && data.daily) {
-      const labels      = Object.keys(data.daily);
-      const totalByDay  = Object.values(data.daily);
-      const phishByDay  = labels.map(d => (data.daily_phishing || {})[d] || 0);
-      lineChart.data.labels           = labels;
-      lineChart.data.datasets[0].data = totalByDay;
-      lineChart.data.datasets[1].data = phishByDay;
-      lineChart.update();
-    }
-  } catch (err) {
-    console.warn('Dashboard stats error:', err);
-  }
 }
 /* ══════════════════════════════════════════
 
@@ -1834,17 +1823,18 @@ async function startScan() {
   // ── update history cache ──
   try {
     const dt = new Date().toISOString().replace('T', ' ').substring(0, 16);
-    const newEntry = { dt, url, result: normLabel, score: confNum, source };
-    historyData.unshift(newEntry);  // user's own history
-    globalData.unshift(newEntry);   // global history for dashboard
+    historyData.unshift({ dt, url, result: normLabel, score: confNum, source });
 
     // Only update history table if that page is open
     if (document.getElementById('page-history')?.classList.contains('active')) {
       renderHistory(historyData);
     }
+   
 
-    renderDashHistory(globalData);
-    loadDashboardStats();  // re-fetch from server for accurate global counts
+    renderDashHistory(historyData);
+
+// refresh GLOBAL dashboard stats + charts
+await loadDashboardStats();
   } catch (renderErr) {
     console.warn('[Scan] UI update error (non-fatal):', renderErr);
   }
@@ -1942,5 +1932,115 @@ window.addEventListener('unhandledrejection', e => {
   e.preventDefault();
 });
 </script>
+
+<!-- ── CHATBOT ── -->
+<div id="chat-bubble" onclick="toggleChat()" style="
+  display:none;
+  position:fixed; bottom:1.5rem; right:1.5rem; z-index:1000;
+  width:52px; height:52px; border-radius:50%;
+  background:linear-gradient(135deg,#6366f1,#818cf8);
+  align-items:center; justify-content:center;
+  cursor:pointer; box-shadow:0 4px 20px rgba(99,102,241,0.5);
+  transition:transform .2s;">
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+</div>
+
+<div id="chat-window" style="
+  display:none; position:fixed; bottom:5.5rem; right:1.5rem; z-index:1000;
+  width:360px; height:500px; border-radius:20px;
+  background:#0f172a; border:1px solid rgba(99,102,241,0.3);
+  box-shadow:0 20px 60px rgba(0,0,0,0.5);
+  flex-direction:column; overflow:hidden;">
+
+  <!-- Header -->
+  <div style="padding:1rem 1.25rem; background:linear-gradient(135deg,rgba(99,102,241,0.2),rgba(129,140,248,0.1));
+    border-bottom:1px solid rgba(99,102,241,0.2); display:flex; align-items:center; justify-content:space-between;">
+    <div style="display:flex; align-items:center; gap:.6rem;">
+      <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#818cf8);
+        display:flex;align-items:center;justify-content:center;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      </div>
+      <div>
+        <div style="font-size:.85rem;font-weight:700;color:#fff;">PhishGuard AI</div>
+        <div style="font-size:.7rem;color:#10b981;">● Online</div>
+      </div>
+    </div>
+    <button onclick="toggleChat()" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:1.2rem;">✕</button>
+  </div>
+
+  <!-- Messages -->
+  <div id="chat-messages" style="flex:1;overflow-y:auto;padding:1rem;display:flex;flex-direction:column;gap:.75rem;">
+    <div class="chat-msg bot">
+      <div class="chat-bubble-msg">👋 Hi! I'm PhishGuard AI. Ask me anything about phishing, URL safety, or your scan results.</div>
+    </div>
+  </div>
+
+  <!-- Input -->
+  <div style="padding:.75rem;border-top:1px solid rgba(99,102,241,0.15);display:flex;gap:.5rem;">
+    <input id="chat-input" type="text" placeholder="Ask about phishing threats..."
+      onkeydown="if(event.key==='Enter') sendChat()"
+      style="flex:1;padding:.6rem .9rem;background:rgba(30,41,59,0.8);border:1px solid rgba(99,102,241,0.2);
+        border-radius:10px;color:#e2e8f0;font-family:'Syne',sans-serif;font-size:.83rem;outline:none;">
+    <button onclick="sendChat()" style="padding:.6rem 1rem;background:linear-gradient(135deg,#6366f1,#818cf8);
+      border:none;border-radius:10px;color:#fff;cursor:pointer;font-weight:700;font-size:.83rem;">Send</button>
+  </div>
+</div>
+
+<style>
+.chat-msg { display:flex; }
+.chat-msg.bot  { justify-content:flex-start; }
+.chat-msg.user { justify-content:flex-end; }
+.chat-bubble-msg {
+  max-width:80%; padding:.6rem .9rem; border-radius:12px;
+  font-size:.82rem; line-height:1.5; color:#e2e8f0;
+}
+.chat-msg.bot  .chat-bubble-msg { background:rgba(99,102,241,0.15); border:1px solid rgba(99,102,241,0.2); border-radius:4px 12px 12px 12px; }
+.chat-msg.user .chat-bubble-msg { background:linear-gradient(135deg,#6366f1,#818cf8); border-radius:12px 4px 12px 12px; }
+.chat-typing .chat-bubble-msg { color:#64748b; font-style:italic; }
+</style>
+
+<script>
+function toggleChat() {
+  const win = document.getElementById('chat-window');
+  win.style.display = win.style.display === 'flex' ? 'none' : 'flex';
+  if (win.style.display === 'flex') document.getElementById('chat-input').focus();
+}
+
+async function sendChat() {
+  const input = document.getElementById('chat-input');
+  const msg   = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+  appendMsg(msg, 'user');
+
+  const typingId = 'typing-' + Date.now();
+  appendMsg('PhishGuard AI is thinking...', 'bot', typingId, 'chat-typing');
+
+  try {
+    const res  = await fetch(`${API}/chat`, {
+      method : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body   : JSON.stringify({ message: msg, email: currentUser?.email || 'guest@phishguard.io' })
+    });
+    const data = await res.json();
+    document.getElementById(typingId)?.remove();
+    appendMsg(data.reply || 'Sorry, I could not get a response.', 'bot');
+  } catch {
+    document.getElementById(typingId)?.remove();
+    appendMsg('Could not reach the AI. Is the backend running?', 'bot');
+  }
+}
+
+function appendMsg(text, role, id='', extraClass='') {
+  const box = document.getElementById('chat-messages');
+  const div = document.createElement('div');
+  div.className = `chat-msg ${role} ${extraClass}`;
+  if (id) div.id = id;
+  div.innerHTML = `<div class="chat-bubble-msg">${text}</div>`;
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+}
+</script>
+
 </body>
 </html>
