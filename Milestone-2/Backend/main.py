@@ -1,4 +1,3 @@
-
 """
 PhishGuard — FastAPI Backend
 """
@@ -11,6 +10,9 @@ from datetime import datetime, timedelta
 import joblib, numpy as np, os
 from pydantic import BaseModel
 from google import genai
+from dotenv import load_dotenv
+import os
+load_dotenv()
 
 from db_setup import get_db, engine
 from db_models import Base, User, ScanHistory
@@ -46,7 +48,7 @@ for model_path in ["final_phishing_model.pkl", "phishing_model.pkl"]:
         print(f"⚠  Could not load {model_path}: {e}")
 
 # ── Gemini ────────────────────────────────────────────────────
-GEMINI_API_KEY = "AIzaSyDTCJzEb7VmRwda_uZtnBymxovJrNctlM4"
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 gemini_client  = None
 try:
     gemini_client = genai.Client(api_key=GEMINI_API_KEY)
@@ -283,4 +285,4 @@ def dashboard_stats(db: Session = Depends(get_db)):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8000)
