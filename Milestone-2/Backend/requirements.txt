@@ -55,6 +55,7 @@ pluggy==1.6.0
 propcache==0.4.1
 proto-plus==1.27.1
 protobuf==5.29.6
+psycopg2-binary==2.9.11
 pyarrow==23.0.0
 pyasn1==0.6.2
 pyasn1_modules==0.4.2
@@ -65,6 +66,7 @@ Pygments==2.19.2
 pyparsing==3.3.2
 pytest==9.0.2
 python-dateutil==2.9.0.post0
+python-dotenv==1.2.2
 python-multipart==0.0.22
 PyYAML==6.0.3
 requests==2.32.5
@@ -93,5 +95,3 @@ websockets==16.0
 Werkzeug==3.1.5
 xxhash==3.6.0
 yarl==1.22.0
-
-python-dotenv
