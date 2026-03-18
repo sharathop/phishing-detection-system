@@ -8,7 +8,7 @@ class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
-    gmail = Column(String, unique=True, index=True, nullable=False)
+    email = Column(String, unique=True, index=True, nullable=False)
     password = Column(String, nullable=False) # In production, always hash this!
 
     # Relationship to history
@@ -22,5 +22,5 @@ class ScanHistory(Base):
     time = Column(DateTime, default=datetime.utcnow)
     
     # Link to User
-    user_gmail = Column(String, ForeignKey("users.gmail"))
+    user_email = Column(String, ForeignKey("users.email"))
     owner = relationship("User", back_populates="scans")

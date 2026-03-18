@@ -18,7 +18,7 @@ from db_setup import get_db, engine
 from db_models import Base, User, ScanHistory
 from model import extract_features
 
-Base.metadata.create_all(bind=engine)
+
 
 app = FastAPI(title="PhishGuard API", version="1.0.0")
 
@@ -121,9 +121,9 @@ class ChatRequest(BaseModel):
 
 @app.post("/register")
 def register(user: UserRegister, db: Session = Depends(get_db)):
-    if db.query(User).filter(User.gmail == user.email).first():
+    if db.query(User).filter(User.email == user.email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
-    db.add(User(name=user.name, gmail=user.email, password=user.password))
+    db.add(User(name=user.name, email=user.email, password=user.password))
     db.commit()
     return {"status": "success", "message": "User created successfully"}
 
@@ -131,20 +131,20 @@ def register(user: UserRegister, db: Session = Depends(get_db)):
 @app.post("/login")
 def login(user: UserLogin, db: Session = Depends(get_db)):
     db_user = db.query(User).filter(
-        User.gmail == user.email,
+        User.email == user.email,
         User.password == user.password
     ).first()
     if not db_user:
         raise HTTPException(status_code=401, detail="Invalid email or password")
     return {
         "status": "success",
-        "user": {"name": db_user.name or db_user.gmail, "email": db_user.gmail}
+        "user": {"name": db_user.name or db_user.email, "email": db_user.email}
     }
 
 
 # ── Trusted domains whitelist ─────────────────────────────────
 TRUSTED_DOMAINS = [
-    'google.com', 'gmail.com', 'youtube.com', 'googleads.com',
+    'google.com', 'email.com', 'youtube.com', 'googleads.com',
     'amazon.com', 'aws.amazon.com', 'amazonaws.com',
     'microsoft.com', 'office.com', 'live.com', 'outlook.com', 'azure.com',
     'apple.com', 'icloud.com',
@@ -163,10 +163,11 @@ TRUSTED_DOMAINS = [
     'accounts.google.com',
     'play.google.com',
     'maps.google.com',
+    'vercel.app'
 ]
 
 def is_trusted(url: str) -> bool:
-    from urllib.parse import urlparse
+    from urllib.parse import urlparse   
     try:
         domain = urlparse(url).netloc.lower().replace('www.', '')
         return any(domain == td or domain.endswith('.' + td) for td in TRUSTED_DOMAINS)
@@ -185,7 +186,7 @@ async def scan_url(request: ScanRequest, db: Session = Depends(get_db)):
 
     # 2. Check trusted domain whitelist
     if is_trusted(request.url):
-        db.add(ScanHistory(url=request.url, output="Safe", user_gmail=request.email))
+        db.add(ScanHistory(url=request.url, output="Safe", user_email=request.email))
         db.commit()
         return {"result": "Safe", "confidence": 99.0, "source": "trusted_domain"}
 
@@ -201,7 +202,7 @@ async def scan_url(request: ScanRequest, db: Session = Depends(get_db)):
             confidence = round(float(np.max(proba)) * 100, 2)
         except Exception:
             pass
-        db.add(ScanHistory(url=request.url, output=result_label, user_gmail=request.email))
+        db.add(ScanHistory(url=request.url, output=result_label, user_email=request.email))
         db.commit()
         return {"result": result_label, "confidence": confidence, "source": "ml_model"}
     except Exception as e:
@@ -214,7 +215,7 @@ async def chat(request: ChatRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail="Gemini not configured.")
     try:
         # Get user's name from DB for personalization
-        db_user = db.query(User).filter(User.gmail == request.email).first()
+        db_user = db.query(User).filter(User.email == request.email).first()
         user_name = db_user.name if db_user and db_user.name else request.email.split("@")[0]
 
         prompt = (
@@ -238,7 +239,7 @@ def get_all_history(db: Session = Depends(get_db)):
     return [
         {"url": h.url, "result": h.output,
          "time": h.time.strftime("%Y-%m-%d %H:%M") if h.time else "—",
-         "source": "database", "user": h.user_gmail}
+         "source": "database", "user": h.user_email}
         for h in rows
     ]
 
@@ -246,7 +247,7 @@ def get_all_history(db: Session = Depends(get_db)):
 @app.get("/history/{email}")
 def get_user_history(email: str, db: Session = Depends(get_db)):
     rows = db.query(ScanHistory).filter(
-        ScanHistory.user_gmail == email
+        ScanHistory.user_email == email
     ).order_by(ScanHistory.time.desc()).all()
     return [
         {"url": h.url, "result": h.output,
@@ -286,3 +287,6 @@ def dashboard_stats(db: Session = Depends(get_db)):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
+
+    ###
