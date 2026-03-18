@@ -715,7 +715,7 @@
           <div style="background:rgba(15,23,42,0.9);border:1px solid rgba(245,158,11,0.2);border-radius:16px;padding:1.5rem;display:inline-block;max-width:340px;text-align:left;">
             <div style="font-size:.72rem;color:#f59e0b;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.5rem;">Step 3</div>
             <div style="font-size:1rem;font-weight:700;color:#fff;margin-bottom:.4rem;">Random Forest Model</div>
-            <div style="font-size:.82rem;color:#94a3b8;line-height:1.6;">Features are fed into a Random Forest classifier trained on 200k+ URLs from PhishTank and Cisco Umbrella.</div>
+            <div style="font-size:.82rem;color:#94a3b8;line-height:1.6;">Features are fed into a Random Forest classifier trained on 100k URLs from PhishTank and Cisco Umbrella.</div>
           </div>
         </div>
         <div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#f59e0b,#fbbf24);
@@ -1168,7 +1168,7 @@ document.querySelectorAll('.process-step').forEach(el => observer.observe(el));
   
 ═══════════════════════════════════════════════════════════════ */
 
-const API = "https://phishguard-api-emtj.onrender.com";
+const API = 'http://127.0.0.1:8000';
 let splitChart;
 let activityChart;
 
@@ -1636,6 +1636,21 @@ async function loadDashboardStats() {
         document.getElementById("safe-urls").innerText =
             data.safe_urls;
 
+        // ===== GAUGE (THREAT LEVEL) =====
+        const threatPct = data.threat_level || 0;
+        const gaugePct    = document.querySelector('.gauge-pct');
+        const gaugeCircle = document.querySelector('.gauge-svg circle:last-child');
+        const gaugeLabel  = document.querySelector('.stat-card.amber [style*="font-size:.75rem"]');
+        if (gaugePct) gaugePct.textContent = threatPct + '%';
+        if (gaugeCircle) {
+            const offset = 175.9 - (threatPct / 100) * 175.9;
+            gaugeCircle.setAttribute('stroke-dashoffset', offset.toFixed(1));
+        }
+        if (gaugeLabel) {
+            gaugeLabel.textContent = threatPct < 20 ? 'LOW' : threatPct < 50 ? 'MODERATE' : 'HIGH';
+            gaugeLabel.style.color = threatPct < 20 ? '#10b981' : threatPct < 50 ? '#fbbf24' : '#f43f5e';
+        }
+
         // ===== DOUGHNUT CHART =====
         if (doughnutChart) {
             doughnutChart.data.datasets[0].data = [
@@ -1649,9 +1664,9 @@ async function loadDashboardStats() {
         if (lineChart && data.daily) {
             const labels = Object.keys(data.daily);
             const values = Object.values(data.daily);
-
             lineChart.data.labels = labels;
             lineChart.data.datasets[0].data = values;
+            lineChart.data.datasets[1].data = labels.map(d => (data.daily_phishing && data.daily_phishing[d]) || 0);
             lineChart.update();
         }
 
