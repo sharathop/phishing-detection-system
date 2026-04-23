@@ -1,4 +1,7 @@
 import pandas as pd
+import numpy as np
+from urllib.parse import urlparse
+import re
 
 # Models
 from sklearn.linear_model import LogisticRegression
@@ -21,9 +24,31 @@ df['status'] = df['status'].map({
     'legitimate': 1,
     'phishing': 0
 })
+def extract_features(url):
+    parsed = urlparse(url)
+    host = parsed.netloc if parsed.netloc else ""
 
+    return [
+        len(url),                                # length_url
+        len(host),                               # length_hostname
+        1 if re.match(r'\d+\.\d+\.\d+\.\d+', host) else 0,  # ip
+        url.count('.'),                          # nb_dots
+        url.count('-'),                          # nb_hyphens
+        url.count('@'),                          # nb_at
+        url.count('?'),                          # nb_qm
+        url.count('&'),                          # nb_and
+        url.count('='),                          # nb_eq
+        url.count('_'),                          # nb_underscore
+        url.count('%'),                          # nb_percent
+        url.count('/'),                          # nb_slash
+        url.count('www'),                        # nb_www
+        url.count('.com'),                       # nb_com
+        1 if 'https' in host else 0,             # https_token
+        sum(c.isdigit() for c in url) / len(url) if len(url) > 0 else 0,  # ratio_digits_url
+        max(host.count('.') - 1, 0)              # nb_subdomains
+    ]
 # ---------- BUILD X AND y ----------
-X = df.drop(columns=["url", "status"])  # features (86 columns)
+X =  np.array([extract_features(u) for u in df["url"]]) # features (86 columns)
 y = df["status"]                        # target
 
 # ---------- TRAIN / TEST SPLIT ----------

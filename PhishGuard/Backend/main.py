@@ -16,9 +16,12 @@ load_dotenv()
 
 from db_setup import get_db, engine
 from db_models import Base, User, ScanHistory
-from model import extract_features
+from feature_extraction import extract_features
 
+import pandas as pd
 
+df = pd.read_csv("dataset_phishing.csv")
+FEATURE_NAMES = list(df.drop(columns=["url", "status"]).columns)
 
 app = FastAPI(title="PhishGuard API", version="1.0.0")
 
@@ -39,65 +42,66 @@ def serve_frontend():
 
 # ── ML Model ──────────────────────────────────────────────────
 MODEL = None
-for model_path in ["final_phishing_model.pkl", "phishing_model.pkl"]:
+for model_path in ["xgboost_phishing_model.pkl"]:
     try:
         MODEL = joblib.load(model_path)
-        print(f"✅ ML Model loaded: {model_path}")
+        print(f" ML Model loaded: {model_path}")
         break
     except Exception as e:
-        print(f"⚠  Could not load {model_path}: {e}")
+        print(f"  Could not load {model_path}: {e}")
 
 # ── Gemini ────────────────────────────────────────────────────
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 gemini_client  = None
 try:
     gemini_client = genai.Client(api_key=GEMINI_API_KEY)
-    print("✅ Gemini AI connected")
+    print(" Gemini AI connected")
 except Exception as e:
-    print(f"⚠  Gemini not connected: {e}")
+    print(f"  Gemini not connected: {e}")
 
-GEMINI_SYSTEM = (
-    "You are PhishGuard AI, a cybersecurity assistant built into the PhishGuard "
-    "phishing detection platform. "
-    "PERSONALIZATION: The user's name will be provided at the start of each message. "
-    "Always greet the user by their name in your first response. "
-    "Use their name naturally in conversation to make it feel personal. "
+GEMINI_SYSTEM = """
+You are PhishGuard AI, a cybersecurity assistant integrated into a phishing detection system.
 
-    "URL ANALYSIS: If the user provides a URL, analyze it and explain each of these "
-    "15 features one by one in simple terms: "
-    "1. URL Length - longer URLs are more suspicious, "
-    "2. Dot Count - too many dots suggest subdomains used to trick users, "
-    "3. Hyphen Count - hyphens are common in fake domains, "
-    "4. HTTPS - legitimate sites usually use HTTPS, "
-    "5. Digits in Domain - numbers in domain names are suspicious, "
-    "6. Suspicious Keywords - words like login, verify, secure, update, confirm, account, password, billing, suspended, recover, alert, unlock, validate, authenticate, authorize, reactivate, restore, renew, "
-    "7. IP Address as Host - using raw IP instead of domain name is a red flag, "
-    "8. @ Symbol - presence of @ in URL is a phishing trick, "
-    "9. Domain Length - very long domains are suspicious, "
-    "10. Subdomain Depth - too many subdomains are a red flag, "
-    "11. Path Length - very long paths can indicate phishing, "
-    "12. Query Parameters - excessive = signs suggest data harvesting, "
-    "13. Free Hosting - hosted on weebly/wix/wordpress/blogspot/github.io/netlify/vercel/glitch, "
-    "14. Special Characters in Domain - special chars in domain label are suspicious, "
-    "15. Double Slash in Path - double slashes in path are a redirect trick. "
-    "After explaining the features, give an overall verdict of Safe or Phishing with a summary. "
+PERSONALIZATION:
+- The user's name will always be provided.
+- Always greet the user using their name in the first response.
+- Keep the tone professional, helpful, and concise.
 
-    "MODEL EXPLANATION: If the user asks how the model works, explain: "
-    "The dataset was collected from PhishTank for phishing URLs and Cisco Umbrella Top Sites "
-    "for legitimate URLs. After collecting the URLs, several lexical features such as URL length, "
-    "number of dots, presence of suspicious keywords, and HTTPS usage were extracted. "
-    "These features were then used to train a Random Forest machine learning model to classify "
-    "URLs as phishing or legitimate. The model achieved 99.6% accuracy on the test dataset. "
-    "A Random Forest works by building multiple decision trees and combining their results "
-    "for a more accurate and robust prediction. "
+SCOPE (STRICT):
+You ONLY answer questions related to:
+- phishing detection
+- URL safety
+- scan results
+- cybersecurity threats
+- phishing project/model-related explanations
 
-    "RESTRICTIONS: You ONLY answer questions related to phishing, URL safety, cybersecurity, "
-    "scan results, and online threats. "
-    "If the user asks anything unrelated (e.g. sports, cooking, coding, general knowledge), "
-    "politely refuse and say their name followed by: 'I can only help with phishing detection "
-    "and cybersecurity questions. Please ask me about URL safety or online threats.' "
-    "Be concise, clear, and professional."
-)
+If the user asks anything unrelated (coding outside this project, sports, movies, general knowledge, entertainment, etc.), respond with:
+"[User Name], I can only assist with phishing detection, this project, scan results, and cybersecurity-related queries. Please ask about URL safety, phishing detection, or cyber threats."
+
+URL ANALYSIS:
+If the user provides a URL:
+- Explain the analysis clearly using key phishing indicators such as URL length, dots, HTTPS usage, suspicious keywords, subdomains, special characters, redirects, IP usage, path structure, and query behavior.
+- Keep the explanation simple and practical.
+- End with a clear verdict: Safe or Phishing, with reasoning.
+
+MODEL EXPLANATION:
+When asked about the project or model:
+- Multiple models were tested: Logistic Regression, Decision Tree, Random Forest, and XGBoost.
+- XGBoost was selected because it achieved the highest accuracy.
+- The model uses 80+ extracted URL features.
+- Feature selection was tested, but using all features gave better results.
+- The final system is optimized for high accuracy and real-time phishing detection.
+
+STYLE RULES:
+- Be direct and structured.
+- Avoid long paragraphs.
+- Avoid unnecessary technical jargon unless asked.
+- Do NOT explain unrelated topics.
+- Always prioritize clarity over complexity.
+
+GOAL:
+Provide accurate, fast, and understandable phishing detection insights to the user.
+"""
 
 # ── Schemas ───────────────────────────────────────────────────
 class UserRegister(BaseModel):
@@ -142,38 +146,6 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
     }
 
 
-# ── Trusted domains whitelist ─────────────────────────────────
-TRUSTED_DOMAINS = [
-    'google.com', 'email.com', 'youtube.com', 'googleads.com',
-    'amazon.com', 'aws.amazon.com', 'amazonaws.com',
-    'microsoft.com', 'office.com', 'live.com', 'outlook.com', 'azure.com',
-    'apple.com', 'icloud.com',
-    'facebook.com', 'instagram.com', 'whatsapp.com', 'messenger.com',
-    'twitter.com', 'x.com',
-    'linkedin.com',
-    'github.com', 'githubusercontent.com',
-    'stackoverflow.com',
-    'wikipedia.org',
-    'netflix.com',
-    'zoom.us',
-    'dropbox.com',
-    'paypal.com',
-    'adobe.com',
-    'gemini.google.com',
-    'accounts.google.com',
-    'play.google.com',
-    'maps.google.com',
-    'vercel.app'
-]
-
-def is_trusted(url: str) -> bool:
-    from urllib.parse import urlparse   
-    try:
-        domain = urlparse(url).netloc.lower().replace('www.', '')
-        return any(domain == td or domain.endswith('.' + td) for td in TRUSTED_DOMAINS)
-    except:
-        return False
-
 @app.post("/scan")
 async def scan_url(request: ScanRequest, db: Session = Depends(get_db)):
     if MODEL is None:
@@ -182,31 +154,51 @@ async def scan_url(request: ScanRequest, db: Session = Depends(get_db)):
     # 1. Check DB cache
     existing = db.query(ScanHistory).filter(ScanHistory.url == request.url).first()
     if existing:
-        return {"result": existing.output, "confidence": 95.0, "source": "database"}
-
-    # 2. Check trusted domain whitelist
-    if is_trusted(request.url):
-        db.add(ScanHistory(url=request.url, output="Safe", user_email=request.email))
-        db.commit()
-        return {"result": "Safe", "confidence": 99.0, "source": "trusted_domain"}
+        # Generate the 86 features for the UI even if the result is cached
+        features = extract_features(request.url)
+        return {
+            "result": existing.output, 
+            "confidence": 95.0, 
+            "source": "database",
+            "features_array": features,
+            "features": dict(zip(FEATURE_NAMES, features))
+        }
 
     # 3. ML prediction
     try:
         features     = extract_features(request.url)
         features_arr = np.array(features).reshape(1, -1)
         prediction   = int(MODEL.predict(features_arr)[0])
-        result_label = "Phishing" if prediction == 1 else "Safe"
+        result_label = "Safe" if prediction == 1 else "Phishing"
         confidence   = 95.0
         try:
             proba      = MODEL.predict_proba(features_arr)[0]
-            confidence = round(float(np.max(proba)) * 100, 2)
+            confidence = round(float(proba[prediction]) * 100, 2)
         except Exception:
             pass
+            
         db.add(ScanHistory(url=request.url, output=result_label, user_email=request.email))
         db.commit()
-        return {"result": result_label, "confidence": confidence, "source": "ml_model"}
+
+        return {
+         "result": result_label,
+         "confidence": confidence,
+         "source": "ml_model",
+         "features_array": features,
+         "features": dict(zip(FEATURE_NAMES, features))
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Prediction error: {str(e)}")
+
+
+@app.get("/extract")
+def extract_url_features(url: str):
+    """Allows the frontend History page to grab the 86 features on demand"""
+    try:
+        features = extract_features(url)
+        return {"features_array": features}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/chat")
@@ -229,7 +221,7 @@ async def chat(request: ChatRequest, db: Session = Depends(get_db)):
         )
         return {"reply": response.text}
     except Exception as e:
-        print(f"❌ Gemini error: {e}")
+        print(f" Gemini error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -287,6 +279,3 @@ def dashboard_stats(db: Session = Depends(get_db)):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
-
-
-    ###
