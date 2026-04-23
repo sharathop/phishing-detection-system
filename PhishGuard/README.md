@@ -33,8 +33,6 @@ The system detects whether a given URL is **Safe or Phishing** using a Machine L
 * 🧾 Scan History Tracking
 * 📊 Dashboard Analytics
 * 🤖 AI Chatbot (Google Gemini Integration)
-* ✅ Trusted Domain Whitelisting
-
 ---
 
 ## 🏗️ Tech Stack
