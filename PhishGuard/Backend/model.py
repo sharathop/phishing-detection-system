@@ -25,7 +25,7 @@ df['status'] = df['status'].map({
 X = df.drop(columns=["url", "status"])
 y = df["status"]
 
-#  IMPORTANT: SAVE FEATURE NAMES
+# IMPORTANT: SAVE FEATURE NAMES
 feature_names = list(X.columns)
 
 # ---------- SPLIT ----------
@@ -73,6 +73,8 @@ plt.legend()
 plt.show()
 
 # ---------- SAVE MODEL + FEATURES ----------
+# Saves both the model AND feature names together in one pkl.
+# main.py loads them from here — no CSV needed at runtime.
 model_data = {
     "model": model,
     "features": feature_names
@@ -80,4 +82,5 @@ model_data = {
 
 joblib.dump(model_data, "xgboost_phishing_model.pkl")
 
-print("\nModel + Features saved successfully!")
+print(f"\nModel + {len(feature_names)} feature names saved to xgboost_phishing_model.pkl")
+print("Deployment only needs the .pkl file — no CSV required.")
