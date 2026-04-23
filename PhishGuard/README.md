@@ -200,12 +200,6 @@ Multiple models were evaluated:
 
 ---
 
-## 📌 Acknowledgment
-
-Developed as part of **Infosys Springboard Internship — Batch 8 (2026)**
-Focused on real-world application of Machine Learning and Full-Stack Development in cybersecurity.
-
----
 
 ## ⭐ Future Improvements
 
