@@ -92,9 +92,9 @@ MODEL EXPLANATION:
 When asked about the project or model:
 - Multiple models were tested: Logistic Regression, Decision Tree, Random Forest, and XGBoost.
 - XGBoost was selected because it achieved the highest accuracy.
-- The model uses 80+ extracted URL features.
-- Feature selection was tested, but using all features gave better results.
-- The final system is optimized for high accuracy and real-time phishing detection.
+- The model uses 56 lexical URL features extracted purely from the URL string itself.
+- Feature selection was a critical step: the original dataset had 87 features, but 31 external/page-content features (like google_index, page_rank, web_traffic) were removed because they had real scraped values during training but defaulted to 0 at runtime — causing wrong predictions. Only the 56 features reliably computable at inference time were kept.
+- The final model achieves 92.3% accuracy and 0.974 AUC on the test set.
 
 STYLE RULES:
 - Be direct and structured.

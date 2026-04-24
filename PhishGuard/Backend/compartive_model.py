@@ -1,7 +1,5 @@
 import pandas as pd
 import numpy as np
-from urllib.parse import urlparse
-import re
 
 # Models
 from sklearn.linear_model import LogisticRegression
@@ -24,32 +22,30 @@ df['status'] = df['status'].map({
     'legitimate': 1,
     'phishing': 0
 })
-def extract_features(url):
-    parsed = urlparse(url)
-    host = parsed.netloc if parsed.netloc else ""
 
-    return [
-        len(url),                                # length_url
-        len(host),                               # length_hostname
-        1 if re.match(r'\d+\.\d+\.\d+\.\d+', host) else 0,  # ip
-        url.count('.'),                          # nb_dots
-        url.count('-'),                          # nb_hyphens
-        url.count('@'),                          # nb_at
-        url.count('?'),                          # nb_qm
-        url.count('&'),                          # nb_and
-        url.count('='),                          # nb_eq
-        url.count('_'),                          # nb_underscore
-        url.count('%'),                          # nb_percent
-        url.count('/'),                          # nb_slash
-        url.count('www'),                        # nb_www
-        url.count('.com'),                       # nb_com
-        1 if 'https' in host else 0,             # https_token
-        sum(c.isdigit() for c in url) / len(url) if len(url) > 0 else 0,  # ratio_digits_url
-        max(host.count('.') - 1, 0)              # nb_subdomains
-    ]
+# ---------- LEXICAL-ONLY FEATURES ----------
+# Only URL-structure features reliably computable at runtime.
+# External/page-content features (google_index, page_rank, web_traffic, etc.)
+# were excluded due to train/inference mismatch — they had real scraped values
+# in the dataset but default to 0 at prediction time.
+LEXICAL_COLS = [
+    'length_url', 'length_hostname', 'ip', 'nb_dots', 'nb_hyphens', 'nb_at',
+    'nb_qm', 'nb_and', 'nb_or', 'nb_eq', 'nb_underscore', 'nb_tilde', 'nb_percent',
+    'nb_slash', 'nb_star', 'nb_colon', 'nb_comma', 'nb_semicolumn', 'nb_dollar',
+    'nb_space', 'nb_www', 'nb_com', 'nb_dslash', 'http_in_path', 'https_token',
+    'ratio_digits_url', 'ratio_digits_host', 'punycode', 'port', 'tld_in_path',
+    'tld_in_subdomain', 'abnormal_subdomain', 'nb_subdomains', 'prefix_suffix',
+    'random_domain', 'shortening_service', 'path_extension', 'nb_redirection',
+    'nb_external_redirection', 'length_words_raw', 'char_repeat', 'shortest_words_raw',
+    'shortest_word_host', 'shortest_word_path', 'longest_words_raw', 'longest_word_host',
+    'longest_word_path', 'avg_words_raw', 'avg_word_host', 'avg_word_path',
+    'phish_hints', 'domain_in_brand', 'brand_in_subdomain', 'brand_in_path',
+    'suspecious_tld', 'statistical_report'
+]
+
 # ---------- BUILD X AND y ----------
-X =  np.array([extract_features(u) for u in df["url"]]) # features (86 columns)
-y = df["status"]                        # target
+X = df[LEXICAL_COLS]
+y = df["status"]
 
 # ---------- TRAIN / TEST SPLIT ----------
 X_train, X_test, y_train, y_test = train_test_split(
@@ -72,7 +68,7 @@ models = {
     ]),
 
     "XGBoost": Pipeline([
-        ('model', XGBClassifier(use_label_encoder=False, eval_metric='logloss'))
+        ('model', XGBClassifier(eval_metric='logloss'))
     ])
 }
 
@@ -81,23 +77,18 @@ results = {}
 
 for name, model in models.items():
     print(f"\n===== {name} =====")
-    
-    # fit (training)
+
     model.fit(X_train, y_train)
-    
-    # predict
     pred = model.predict(X_test)
-    
-    # evaluate
+
     acc = accuracy_score(y_test, pred)
     print("Accuracy:", acc)
-    print(confusion_matrix(y_test,pred))
+    print(confusion_matrix(y_test, pred))
     print(classification_report(y_test, pred))
-    
-    results[name] =acc
-    
+
+    results[name] = acc
 
 # ---------- FINAL COMPARISON ----------
 print("\n===== FINAL COMPARISON =====")
 for model, score in results.items():
-    print(f"{model}: {score}")
+    print(f"{model}: {score:.4f}")
