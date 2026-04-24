@@ -19,7 +19,7 @@ The system detects whether a given URL is **Safe or Phishing** using a Machine L
 
 ## 🚀 Live Demo
 
-* 🌐 Frontend (Vercel):https://phishing-detection-system-tau.vercel.app
+* 🌐 Frontend (Vercel): https://phishing-detection-system-tau.vercel.app
 * ⚙️ Backend (Render): https://phishguard-api-emtj.onrender.com
 
 ---
@@ -29,10 +29,11 @@ The system detects whether a given URL is **Safe or Phishing** using a Machine L
 * 🔐 User Authentication (Register/Login)
 * 🔍 URL Phishing Detection
 * 📊 Confidence Score
-* 📈 Feature-Level Analysis (84 Features)
+* 📈 Feature-Level Analysis (56 Lexical Features)
 * 🧾 Scan History Tracking
 * 📊 Dashboard Analytics
 * 🤖 AI Chatbot (Google Gemini Integration)
+
 ---
 
 ## 🏗️ Tech Stack
@@ -52,7 +53,7 @@ The system detects whether a given URL is **Safe or Phishing** using a Machine L
 ### Machine Learning
 
 * XGBoost Classifier
-* 80+ Engineered URL Features
+* 56 Engineered Lexical URL Features
 * Feature Importance Analysis
 
 ### Database
@@ -73,6 +74,7 @@ PhishGuard/
 │   ├── main.py
 │   ├── model.py
 │   ├── feature_extraction.py
+│   ├── xgboost_phishing_model.pkl
 │   ├── db_models.py
 │   ├── db_setup.py
 │   ├── migrations/
@@ -149,6 +151,10 @@ Frontend (Vercel)
         ↓
 Backend (Render - FastAPI)
         ↓
+Feature Extraction Layer
+        ↓
+ML Model (.pkl)
+        ↓
 Database (Neon PostgreSQL)
 ```
 
@@ -160,6 +166,8 @@ Database (Neon PostgreSQL)
 
 https://www.kaggle.com/datasets/shashwatwork/web-page-phishing-detection-dataset
 
+---
+
 ### Model Comparison
 
 Multiple models were evaluated:
@@ -169,23 +177,32 @@ Multiple models were evaluated:
 * Random Forest
 * XGBoost
 
+---
+
 ### Final Model
 
-* XGBoost selected based on highest accuracy (~96–97%)
+* XGBoost selected based on highest accuracy (~92–97%)
+
+---
 
 ### Features
 
-* 80+ engineered features including:
+* 56 engineered lexical features derived from URLs including:
 
-  * URL structure
-  * Domain properties
-  * lexical patterns
-  * statistical indicators
+  * URL structure (length, dots, special characters)
+  * Domain properties (subdomains, IP usage)
+  * Lexical patterns and keyword signals
+  * Statistical properties of URL components
+
+---
 
 ### Feature Selection
 
-* Random Forest feature importance was used
-* Experiments showed **all features performed better**, so full feature set retained
+* Initial dataset contained 80+ features
+* External features (e.g., Google index, page rank, web traffic) were removed
+* Final model uses only **lexical features computed in real-time**
+
+👉 Reason: Avoid train–inference mismatch and ensure production reliability
 
 ---
 
@@ -197,7 +214,6 @@ Multiple models were evaluated:
 * Input validation for URLs
 
 ---
-
 
 ## ⭐ Future Improvements
 
