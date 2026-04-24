@@ -1,15 +1,15 @@
 """
 feature_extraction.py  –  PhishGuard
-Extracts all 86 features in the exact order expected by the XGBoost model.
+Extracts all 87 features in the exact order expected by the XGBoost model.
 
 Lexical features (fast, no network):  cols 0–55
-External features (network/WHOIS):    cols 56–85  → default safe values used
+External features (network/WHOIS):    cols 56–86  → default safe values used
                                        if lookup fails or times out.
 
 Usage:
     from feature_extraction import extract_features
     features = extract_features("https://example.com/login?id=1")
-    # returns list of 86 numeric values
+    # returns list of 87 numeric values
 """
 
 import re
@@ -424,9 +424,10 @@ def extract_features(url: str) -> list:
         f51, f52, f53, f54, f55, f56,
         f57, f58, f59, f60, f61, f62, f63, f64, f65, f66,
         f67, f68, f69, f70, f71, f72, f73, f74, f75, f76,
-        f77, f78, f79, f80, f81, f82, f83, f84, f85, f86
+        f77, f78, f79, f80, f81, f82, f83, f84, f85, f86,
+        f87
     ]
 
     # Sanity check
-    assert len(features) == 86, f"Feature count mismatch: {len(features)}"
+    assert len(features) == 87, f"Feature count mismatch: {len(features)}"
     return features
