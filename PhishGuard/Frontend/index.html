@@ -640,7 +640,7 @@
       AI-Powered<br><span style="background:linear-gradient(135deg,#6366f1,#818cf8,#a5b4fc);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">Phishing Detection</span><br>& Classification
     </h1>
     <p style="font-size:1.05rem;color:#94a3b8;line-height:1.7;max-width:560px;margin:0 auto 2.5rem;">
-      Protect your organization from sophisticated phishing attacks in real time. Our XGBoostClassifier ML engine analyzes 86 threat indicators to keep you safe.
+      Protect your organization from sophisticated phishing attacks in real time. Our XGBoostClassifier ML engine analyzes 56 threat indicators to keep you safe.
     </p>
     <div style="display:flex;gap:1rem;justify-content:center;flex-wrap:wrap;">
       <button onclick="showModal('register')" style="padding:.85rem 2rem;background:linear-gradient(135deg,#6366f1,#818cf8);
@@ -697,7 +697,7 @@
           <div style="background:rgba(15,23,42,0.9);border:1px solid rgba(6,182,212,0.2);border-radius:16px;padding:1.5rem;display:inline-block;max-width:340px;">
             <div style="font-size:.72rem;color:#06b6d4;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.5rem;">Step 2</div>
             <div style="font-size:1rem;font-weight:700;color:#fff;margin-bottom:.4rem;">Feature Extraction</div>
-            <div style="font-size:.82rem;color:#94a3b8;line-height:1.6;">86 lexical and external features are extracted: URL length, dots, hyphens, HTTPS, suspicious keywords, IP detection, subdomain depth and more.</div>
+            <div style="font-size:.82rem;color:#94a3b8;line-height:1.6;">56 lexical and external features are extracted: URL length, dots, hyphens, HTTPS, suspicious keywords, IP detection, subdomain depth and more.</div>
           </div>
         </div>
       </div>
@@ -765,7 +765,7 @@
         <div style="width:40px;height:40px;border-radius:10px;background:rgba(16,185,129,0.15);display:flex;align-items:center;justify-content:center;margin-bottom:1rem;">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
         </div>
-        <div style="font-weight:700;color:#fff;margin-bottom:.4rem;">86-Feature Analysis</div>
+        <div style="font-weight:700;color:#fff;margin-bottom:.4rem;">56-Feature Analysis</div>
         <div style="font-size:.82rem;color:#94a3b8;line-height:1.6;">Deep breakdown of every URL feature with visual indicators and risk scores.</div>
       </div>
       <div class="feat-card" style="background:rgba(15,23,42,0.9);border:1px solid rgba(244,63,94,0.15);border-radius:16px;padding:1.5rem;">
@@ -1045,7 +1045,7 @@ document.querySelectorAll('.process-step').forEach(el => observer.observe(el));
       <div class="scan-wrapper" style="max-width:780px;">
         <div class="scan-hero">
           <h2>Detect Phishing Instantly</h2>
-          <p>Paste any suspicious URL below. Our AI engine analyzes 86 key features using a  XGBoostClassifier trained on thousands of URLs.</p>
+          <p>Paste any suspicious URL below. Our AI engine analyzes 56 key features using a  XGBoostClassifier trained on thousands of URLs.</p>
         </div>
 
         <div class="scan-box">
@@ -1635,7 +1635,7 @@ async function loadDashboardStats() {
 }
 
 /* ══════════════════════════════════════════
-   FEATURE METADATA (86 Features)
+   FEATURE METADATA (56 Features)
 ══════════════════════════════════════════ */
 const FEATURE_META = [
   /* 0 */ {
@@ -2495,7 +2495,7 @@ async function showHistoryDetail(idx) {
 
   // Show a loading state inside the grid while it fetches the features
   const grid = document.getElementById('hd-feature-grid');
-  grid.innerHTML = '<div style="padding: 3rem; text-align: center; color: var(--slate-400); grid-column: 1/-1;">Extracting 86 features from backend...</div>';
+  grid.innerHTML = '<div style="padding: 3rem; text-align: center; color: var(--slate-400); grid-column: 1/-1;">Extracting 56 features from backend...</div>';
 
   modal.style.display = 'flex';
   document.body.style.overflow = 'hidden';
@@ -2514,7 +2514,7 @@ async function showHistoryDetail(idx) {
     if (digitsEl) { digitsEl.textContent = features[4] === 1 ? 'Yes' : 'No';           digitsEl.style.color = features[4] === 1 ? 'var(--rose)' : 'var(--emerald)'; }
     if (sourceEl) { sourceEl.textContent = r.source === 'database' ? '⚡ Cached' : '🤖 ML Model'; sourceEl.style.color = r.source === 'database' ? '#818cf8' : '#34d399'; }
 
-    // Render the final 86 elements
+    // Render the final 56 elements
     renderFeatureGridIn('hd-feature-grid', features, isPhish, data);
   } catch (err) {
     grid.innerHTML = '<div style="padding: 3rem; text-align: center; color: var(--rose); grid-column: 1/-1;">Error loading features. Is the backend running?</div>';
