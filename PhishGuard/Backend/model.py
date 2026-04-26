@@ -17,8 +17,8 @@ df = pd.read_csv("dataset_phishing.csv")
 
 # ---------- LABEL MAPPING ----------
 df['status'] = df['status'].map({
-    'legitimate': 1,
-    'phishing': 0
+    'legitimate':0,
+    'phishing': 1
 })
 
 # ---------- LEXICAL-ONLY FEATURES ----------
