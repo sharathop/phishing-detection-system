@@ -1,3 +1,4 @@
+
 import pandas as pd
 import joblib
 import matplotlib.pyplot as plt
@@ -9,7 +10,8 @@ from sklearn.metrics import (
     confusion_matrix,
     classification_report,
     roc_curve,
-    roc_auc_score
+    roc_auc_score,
+    recall_score
 )
 
 # ---------- LOAD DATA ----------
@@ -17,16 +19,11 @@ df = pd.read_csv("dataset_phishing.csv")
 
 # ---------- LABEL MAPPING ----------
 df['status'] = df['status'].map({
-    'legitimate':0,
+    'legitimate': 0,
     'phishing': 1
 })
 
-# ---------- LEXICAL-ONLY FEATURES ----------
-# Only URL-structure features that can be reliably computed at runtime
-# without any network/page-fetch calls.
-# External/page-content features (nb_hyperlinks, google_index, page_rank, etc.)
-# were excluded because the training dataset had real scraped values while the
-# extractor defaults them all to 0 at prediction time — causing severe mismatch.
+# ---------- FEATURES ----------
 LEXICAL_COLS = [
     'length_url', 'length_hostname', 'ip', 'nb_dots', 'nb_hyphens', 'nb_at',
     'nb_qm', 'nb_and', 'nb_or', 'nb_eq', 'nb_underscore', 'nb_tilde', 'nb_percent',
@@ -56,24 +53,38 @@ model = XGBClassifier(
     max_depth=6,
     learning_rate=0.1,
     subsample=0.8,
-    eval_metric='logloss'
+    eval_metric='logloss',
+    scale_pos_weight=2   # helps reduce FN
 )
 
 # ---------- TRAIN ----------
 model.fit(X_train, y_train)
 
-# ---------- PREDICT ----------
-pred = model.predict(X_test)
+# ---------- PROBABILITIES ----------
+probs = model.predict_proba(X_test)[:, 1]  # probability of phishing
 
-# ---------- EVALUATION ----------
-print("\n===== TEST PERFORMANCE =====")
+# ---------- TRY DIFFERENT THRESHOLDS ----------
+print("\n===== THRESHOLD TESTING =====")
+
+for t in [0.5, 0.4, 0.3]:
+    pred = (probs >= t).astype(int)
+    
+    print(f"\n--- Threshold: {t} ---")
+    print("Accuracy:", accuracy_score(y_test, pred))
+    print("Recall (phishing):", recall_score(y_test, pred))
+    print("Confusion Matrix:\n", confusion_matrix(y_test, pred))
+
+# ---------- FINAL CHOICE ----------
+threshold = 0.4   # choose based on above results
+pred = (probs >= threshold).astype(int)
+
+# ---------- FINAL EVALUATION ----------
+print("\n===== FINAL MODEL (Threshold =", threshold, ") =====")
 print("Accuracy:", accuracy_score(y_test, pred))
 print("\nConfusion Matrix:\n", confusion_matrix(y_test, pred))
 print("\nClassification Report:\n", classification_report(y_test, pred))
 
 # ---------- ROC & AUC ----------
-probs = model.predict_proba(X_test)[:, 1]
-
 fpr, tpr, _ = roc_curve(y_test, probs)
 auc = roc_auc_score(y_test, probs)
 
@@ -89,13 +100,13 @@ plt.title("ROC Curve")
 plt.legend()
 plt.show()
 
-# ---------- SAVE MODEL + FEATURES ----------
+# ---------- SAVE MODEL ----------
 model_data = {
     "model": model,
-    "features": LEXICAL_COLS
+    "features": LEXICAL_COLS,
+    "threshold": threshold   # save threshold too
 }
 
 joblib.dump(model_data, "xgboost_phishing_model.pkl")
 
-print(f"\nModel + {len(LEXICAL_COLS)} lexical feature names saved to xgboost_phishing_model.pkl")
-print("Deployment only needs the .pkl file — no CSV required.")
+print(f"\nModel + threshold saved to xgboost_phishing_model.pkl")

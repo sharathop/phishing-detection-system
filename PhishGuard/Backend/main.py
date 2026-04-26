@@ -38,18 +38,20 @@ def serve_frontend():
 # ── ML Model ──────────────────────────────────────────────────
 MODEL = None
 FEATURE_NAMES = []
+THRESHOLD = 0.4  # default; overridden by value saved in pkl
 
 for model_path in ["xgboost_phishing_model.pkl"]:
     try:
         model_data = joblib.load(model_path)
-        # Support both formats: dict with features (new) or plain model (old)
         if isinstance(model_data, dict):
             MODEL = model_data["model"]
             FEATURE_NAMES = model_data["features"]
+            THRESHOLD = model_data.get("threshold", 0.4)
         else:
             MODEL = model_data  # fallback for old pkl format
         print(f" ML Model loaded: {model_path}")
         print(f" Feature names loaded: {len(FEATURE_NAMES)} features")
+        print(f" Threshold: {THRESHOLD}")
         break
     except Exception as e:
         print(f"  Could not load {model_path}: {e}")
@@ -172,14 +174,15 @@ async def scan_url(request: ScanRequest, db: Session = Depends(get_db)):
     try:
         features     = extract_features(request.url)
         features_arr = np.array(features).reshape(1, -1)
-        prediction   = int(MODEL.predict(features_arr)[0])
-        result_label = "Safe" if prediction == 1 else "Phishing"
-        confidence   = 95.0
-        try:
-            proba      = MODEL.predict_proba(features_arr)[0]
-            confidence = round(float(proba[prediction]) * 100, 2)
-        except Exception:
-            pass
+
+        # predict_proba gives [P(legitimate), P(phishing)]
+        # label mapping: legitimate=0, phishing=1
+        # use saved threshold (0.4) instead of default 0.5
+        proba        = MODEL.predict_proba(features_arr)[0]
+        phish_prob   = float(proba[1])                          # P(phishing)
+        prediction   = 1 if phish_prob >= THRESHOLD else 0
+        result_label = "Phishing" if prediction == 1 else "Safe"
+        confidence   = round(phish_prob * 100 if prediction == 1 else (1 - phish_prob) * 100, 2)
 
         db.add(ScanHistory(url=request.url, output=result_label, user_email=request.email))
         db.commit()
