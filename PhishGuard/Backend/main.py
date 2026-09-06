@@ -14,9 +14,62 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+import tldextract
+from urllib.parse import urlparse
+
 from db_setup import get_db, engine
 from db_models import Base, User, ScanHistory
 from feature_extraction import extract_features
+
+# ── Known-safe domain allowlist ──────────────────────────────
+# Pure lexical URL features can't reliably distinguish a clean, short,
+# well-known root domain (github.com) from a clean, short phishing domain.
+# Real detectors combine ML with an allowlist for exactly this reason.
+# Bypasses the model entirely for domains on this list — no network call.
+KNOWN_SAFE_DOMAINS = {
+    'google.com', 'youtube.com', 'facebook.com', 'amazon.com', 'wikipedia.org',
+    'twitter.com', 'x.com', 'instagram.com', 'github.com', 'microsoft.com',
+    'apple.com', 'chatgpt.com', 'openai.com', 'netflix.com', 'linkedin.com',
+    'reddit.com', 'yahoo.com', 'bing.com', 'office.com', 'dropbox.com',
+    'adobe.com', 'ebay.com', 'paypal.com', 'whatsapp.com', 'stackoverflow.com',
+    'wordpress.com', 'blogspot.com', 'tumblr.com', 'medium.com', 'quora.com',
+    'pinterest.com', 'twitch.tv', 'discord.com', 'slack.com', 'zoom.us',
+    'salesforce.com', 'shopify.com', 'stripe.com', 'notion.so', 'figma.com',
+    'gitlab.com', 'bitbucket.org', 'atlassian.com', 'jira.com', 'trello.com',
+    'spotify.com', 'soundcloud.com', 'vimeo.com', 'nytimes.com', 'bbc.com',
+    'cnn.com', 'forbes.com', 'bloomberg.com', 'reuters.com', 'wsj.com',
+    'aws.amazon.com', 'azure.microsoft.com', 'cloud.google.com', 'ibm.com',
+    'oracle.com', 'sap.com', 'intel.com', 'nvidia.com', 'amd.com',
+    'samsung.com', 'sony.com', 'lg.com', 'huawei.com', 'xiaomi.com',
+    'uber.com', 'lyft.com', 'airbnb.com', 'booking.com', 'expedia.com',
+    'tripadvisor.com', 'yelp.com', 'walmart.com', 'target.com', 'bestbuy.com',
+    'homedepot.com', 'costco.com', 'ikea.com', 'nike.com', 'adidas.com',
+    'coursera.org', 'udemy.com', 'edx.org', 'khanacademy.org', 'duolingo.com',
+    'mit.edu', 'stanford.edu', 'harvard.edu', 'w3.org', 'mozilla.org',
+    'python.org', 'npmjs.com', 'docker.com', 'kubernetes.io', 'terraform.io',
+    'anthropic.com', 'claude.ai', 'meta.com', 'tiktok.com', 'snapchat.com',
+    'telegram.org', 'signal.org', 'protonmail.com', 'icloud.com', 'gmail.com',
+    'outlook.com', 'live.com', 'hotmail.com', 'yandex.com', 'baidu.com',
+    'alibaba.com', 'tencent.com', 'jd.com', 'ea.com', 'steampowered.com',
+    'epicgames.com', 'roblox.com', 'minecraft.net', 'blizzard.com',
+}
+
+
+def get_registered_domain(url: str) -> str:
+    ext = tldextract.extract(url)
+    return f"{ext.domain}.{ext.suffix}".lower() if ext.suffix else ext.domain.lower()
+
+
+def uses_https(url: str) -> bool:
+    """
+    Human-readable HTTPS check for the UI.
+    NOTE: This is deliberately separate from the model's `https_token`
+    feature. That feature's raw value is inverted to match how the
+    training dataset defines it (1 = plain http, 0 = https) — correct
+    for the model, but wrong to show a user as "does this URL use HTTPS".
+    Always use this function for display, never the raw feature value.
+    """
+    return urlparse(url).scheme == "https"
 
 app = FastAPI(title="PhishGuard API", version="1.0.0")
 
@@ -38,7 +91,7 @@ def serve_frontend():
 # ── ML Model ──────────────────────────────────────────────────
 MODEL = None
 FEATURE_NAMES = []
-THRESHOLD = 0.4  # default; overridden by value saved in pkl
+THRESHOLD = 0.4  
 
 for model_path in ["xgboost_phishing_model.pkl"]:
     try:
@@ -157,6 +210,20 @@ async def scan_url(request: ScanRequest, db: Session = Depends(get_db)):
     if MODEL is None:
         raise HTTPException(status_code=500, detail="ML model not loaded.")
 
+    # 0. Allowlist check — bypasses the model for well-known domains,
+    # since pure lexical features can't reliably clear a clean, short,
+    # famous root domain (see /docs or README for why).
+    if get_registered_domain(request.url) in KNOWN_SAFE_DOMAINS:
+        features = extract_features(request.url)
+        return {
+            "result": "Safe",
+            "confidence": 99.0,
+            "source": "allowlist",
+            "uses_https": uses_https(request.url),
+            "features_array": features,
+            "features": dict(zip(FEATURE_NAMES, features)) if FEATURE_NAMES else {}
+        }
+
     # 1. Check DB cache
     existing = db.query(ScanHistory).filter(ScanHistory.url == request.url).first()
     if existing:
@@ -166,6 +233,7 @@ async def scan_url(request: ScanRequest, db: Session = Depends(get_db)):
             "result": existing.output,
             "confidence": 95.0,
             "source": "database",
+            "uses_https": uses_https(request.url),
             "features_array": features,
             "features": dict(zip(FEATURE_NAMES, features)) if FEATURE_NAMES else {}
         }
@@ -191,6 +259,7 @@ async def scan_url(request: ScanRequest, db: Session = Depends(get_db)):
             "result": result_label,
             "confidence": confidence,
             "source": "ml_model",
+            "uses_https": uses_https(request.url),
             "features_array": features,
             "features": dict(zip(FEATURE_NAMES, features)) if FEATURE_NAMES else {}
         }

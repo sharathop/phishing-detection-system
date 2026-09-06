@@ -167,7 +167,10 @@ def extract_features(url: str) -> list:
     # ── 24. http_in_path
     f24 = 1 if 'http' in path.lower() else 0
     # ── 25. https_token
-    f25 = 1 if parsed.scheme == 'https' else 0
+    # NOTE: matches training-data semantics exactly (verified against
+    # dataset_phishing.csv): this column is 1 for http:// URLs, 0 for https://.
+    # It is effectively "is_not_https", not "is_https" — do not flip this.
+    f25 = 1 if parsed.scheme != 'https' else 0
     # ── 26. ratio_digits_url
     f26 = _ratio_digits(full_url)
     # ── 27. ratio_digits_host
@@ -189,7 +192,8 @@ def extract_features(url: str) -> list:
     # ── 35. random_domain
     f35 = _random_domain(domain)
     # ── 36. shortening_service
-    f36 = 1 if any(s in full_url.lower() for s in SHORTENING_SERVICES) else 0
+    reg_domain = f"{ext.domain}.{ext.suffix}".lower() if ext.suffix else domain.lower()
+    f36 = 1 if reg_domain in SHORTENING_SERVICES else 0
     # ── 37. path_extension
     ext_match = re.search(r'\.([a-zA-Z0-9]{2,5})$', path.split('?')[0])
     f37 = 1 if ext_match else 0
